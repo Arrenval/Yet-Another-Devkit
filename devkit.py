@@ -1,16 +1,16 @@
+DEVKIT_VER = (0, 3, 0)
+
 import os
 import bpy   
+import addon_utils
 
+from pathlib       import Path
 from functools     import partial
+from typing        import Dict
 from itertools     import combinations
 from bpy.types     import Operator, Panel, PropertyGroup
 from bpy.props     import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty
 
-# Global variable for making sure all functions can properly track the current export.
-is_exporting: bool = False
-
-
-addon_installed = "Yet Another Addon" in bpy.context.preferences.addons
 
 #       Shapes:         (Name,          Slot/Misc,      Category, Description,                                           Body,             Shape Key)
 ALL_SHAPES = {
@@ -52,6 +52,12 @@ ALL_SHAPES = {
         }
 
 
+# Global variable for making sure all functions can properly track the current export.
+is_exporting: bool      = False
+
+devkit_registered: bool = False
+
+
 def yas_state(self, context):
     show_modifier = self.toggle_yas
     
@@ -78,6 +84,13 @@ def force_yas(context):
                     obj.toggle_yas = True
                 except:
                     continue
+
+def visible_meshobj():
+    visible_meshobj = []
+    for obj in bpy.context.scene.objects:
+        if obj.visible_get(view_layer=bpy.context.view_layer) and obj.type == "MESH":
+            visible_meshobj.append(obj)
+    return visible_meshobj
 
 def get_object_from_mesh(mesh_name):
     for obj in bpy.context.scene.objects:
@@ -127,7 +140,7 @@ def has_shape_keys(ob):
 def get_filtered_shape_keys(obj, key_filter: list):
         shape_keys = obj.shape_keys.key_blocks
         key_list = []
-        to_exclude = ["Mini", "Mini Heels", "Heels", "Cinderella"]
+        to_exclude = ["Mini"]
         
         for key in shape_keys:
             norm_key = key.name.lower().replace("-","").replace(" ","")
@@ -176,7 +189,12 @@ def update_directory(category):
 
 
 class CollectionState(PropertyGroup):
-    collection_name: bpy.props.StringProperty() # type: ignore
+    name: bpy.props.StringProperty() # type: ignore
+
+
+class ObjectState(PropertyGroup):
+    name: bpy.props.StringProperty() # type: ignore
+    hide: bpy.props.BoolProperty() # type: ignore
 
 
 class DevkitProps(PropertyGroup):
@@ -196,8 +214,10 @@ class DevkitProps(PropertyGroup):
             setattr(DevkitProps, prop_name, prop)
 
     extra_buttons_list = [
-        ("check",    "tris",     True, "Verify that the meshes have an active triangulation modifier"),
-        ("force",    "yas",      False, "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
+        ("check",    "tris",     True,   "Verify that the meshes have an active triangulation modifier"),
+        ("force",    "yas",      False,  "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
+        ("fix",      "parent",   True,   "Parents the meshes to the devkit skeleton and removes non-mesh objects"),
+        ("update",   "material", True,  "Changes material rendering and enables backface culling"),
         ]
    
     @staticmethod
@@ -222,13 +242,12 @@ class DevkitProps(PropertyGroup):
     ("other",    "shapes",   "Opens the category"),
     ("chest",    "category", "Opens the category"),
     ("yas",      "expand",   "Opens the category"),
-    ("modpack",  "expand",   "Opens the category"),
     ("export",   "options",  "Opens the category"),
-    ("check",    "tris",     "Verify that the meshes have an active triangulation modifier"),
+    ("import",   "options",  "Opens the category"),
+    ("dynamic",  "view",     "Changes between a shape key view that focuses on the main controller in a collection or the active object"),
     ("force",    "yas",      "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
     ("advanced", "expand",   "Switches between a simplified and full view of the shape keys"),
-    ("dynamic",  "view",     "Toggles between a dynamic collection viewer and one constrained to the active object"),
-    ("modpack",  "replace",  "Make new or update existing mod")
+   
     ]
    
     mesh_list = [
@@ -312,9 +331,10 @@ class DevkitProps(PropertyGroup):
              "mq":    mq,
         }
         
+        
         for name, obj in targets.items():
+            
             key_list = get_filtered_shape_keys(obj, key_filter)
-
             for key, category, key_name in key_list:      
                 
                 prop_name = f"key_{key}_{name}"
@@ -400,6 +420,8 @@ class DevkitProps(PropertyGroup):
 
     collection_state: bpy.props.CollectionProperty(type=CollectionState) # type: ignore
 
+    object_state: bpy.props.CollectionProperty(type=ObjectState) # type: ignore
+
     export_body_slot: EnumProperty(
         name= "",
         description= "Select a body slot",
@@ -423,14 +445,27 @@ class DevkitProps(PropertyGroup):
         subtype="DIR_PATH", 
         maxlen=255,
         )  # type: ignore
-
-    export_gltf: BoolProperty(
+    
+    import_display_directory: StringProperty(
+        name="Export Folder",
+        default="Select Export Directory",  
+        maxlen=255,
+        update=lambda self, context: update_directory('import'),
+        ) # type: ignore
+    
+    rename_import: StringProperty(
         name="",
-        description="Switch export format", 
+        description="Renames the prefix of the selected meshes",
+        default="",
+        maxlen=255,
+        )  # type: ignore
+
+    file_gltf: BoolProperty(
+        name="",
+        description="Switch file format", 
         default=False,
         ) # type: ignore
     
-
     ui_size_category: StringProperty(
         name="",
         subtype="DIR_PATH", 
@@ -442,11 +477,15 @@ class CollectionManager(Operator):
     bl_idname = "ya.collection_manager"
     bl_label = "Export"
     bl_description = "Combines chest options and exports them"
-    bl_options = {'UNDO'}
+
+    preset: StringProperty() # type: ignore
 
     def __init__(self):
+        self.view_layer = bpy.context.view_layer.layer_collection
+        self.collections_state = bpy.context.scene.devkit_props.collection_state
+        self.object_state = bpy.context.scene.devkit_props.object_state
         self.coll = bpy.data.collections
-        self.collections_to_keep = [
+        self.export_collections = [
             self.coll["Skeleton"],
             self.coll["Resources"],
             self.coll["Data Sources"],
@@ -456,45 +495,84 @@ class CollectionManager(Operator):
             self.coll["YAS"],
             self.coll["Piercings"]
         ]
-   
+        self.restore = []
+        self.obj_visibility = {}
+    
     def execute(self, context): 
-        collections = bpy.context.scene.devkit_props.collection_state
-        
-        for state in collections:
-            name = state.collection_name
-            new_collection = self.coll[name]
-            self.collections_to_keep.append(new_collection)
-        
-        self.collections_to_keep = set(self.collections_to_keep)
+        if self.preset == "Export":
+            self.get_obj_visibility()
+            for state in self.collections_state:
+                name = state.name
+                collection = self.coll[name]
+                self.export_collections.append(collection)
+            self.restore = self.export_collections
+            
+            self.save_current_state()
+            bpy.context.view_layer.layer_collection.children['Resources'].hide_viewport = True
+        elif self.preset == "Restore":
+            for state in self.collections_state:
+                    name = state.name
+                    collection = self.coll[name]
+                    self.restore.append(collection)
+        else:
+            self.save_current_state()
+            for state in self.collections_state:
+                    name = state.name
+                    collection = self.coll[name]
+                    self.restore.append(collection)
 
         self.exclude_collections()
-        bpy.context.view_layer.layer_collection.children['Resources'].hide_viewport = True
+        self.restore_obj_visibility()
+        
         return {"FINISHED"}
 
-    def exclude_collections(self):
-        # Eclude all collections except those to keep
-        all_collections = bpy.data.collections
+    def save_current_state(self):
+        self.collections_state.clear()
+        for layer_collection in bpy.context.view_layer.layer_collection.children:
+            if not layer_collection.exclude:
+                state = self.collections_state.add()
+                state.name = layer_collection.name
+            for children in layer_collection.children:
+                if not children.exclude:
+                    state = self.collections_state.add()
+                    state.name = children.name
+    
+    def get_obj_visibility(self):
+        self.object_state.clear()
+        for obj in bpy.context.scene.objects:
+            if obj.visible_get(view_layer=bpy.context.view_layer):
+                state = self.object_state.add()
+                state.name = obj.name
+                state.hide = False
+            if obj.hide_get(view_layer=bpy.context.view_layer):
+                state = self.object_state.add()
+                state.name = obj.name
+                state.hide = True
         
-        # First set visible to avoid children being enabled
-        for collection in self.collections_to_keep:
+    def restore_obj_visibility(self):
+        for obj in bpy.context.view_layer.objects:
+            for state in self.object_state:
+                if obj.name == state.name:
+                    obj.hide_set(state.hide)
+                    
+    def exclude_collections(self):
+        all_collections = self.coll
+        
+        for collection in self.restore:
             self.toggle_collection_exclude(collection, exclude=False)
 
-        # Exclude remaining collections
         for collection in all_collections:
-            if collection not in self.collections_to_keep:
+            if collection not in self.restore:
                 self.toggle_collection_exclude(collection, exclude=True)
     
     def toggle_collection_exclude(self, collection, exclude=True):
-            # Get the layer collections for the current scene and context
             for layer_collection in bpy.context.view_layer.layer_collection.children:
                 self.recursively_toggle_exclude(layer_collection, collection, exclude)
 
     def recursively_toggle_exclude(self, layer_collection, collection, exclude):
-        # check all layers for children and apply exclude state
         if layer_collection.collection == collection:
             layer_collection.exclude = exclude
         
-        # Recursive check for child collections
         for child in layer_collection.children:
             self.recursively_toggle_exclude(child, collection, exclude)
 
@@ -700,7 +778,7 @@ class ApplyVisibility(Operator):
             else:
                 collection["Feet"].children["Toenails"].exclude = True
         
-        elif self.target == "Feet":
+        elif self.key == "Clawsies" and self.target == "Feet":
 
             if collection["Feet"].children["Toe Clawsies"].exclude:
                 collection["Feet"].children["Toe Clawsies"].exclude = False
@@ -730,7 +808,7 @@ class SimpleExport(Operator):
     bl_idname = "ya.simple_export"
     bl_label = "Open Export Window"
     bl_description = "Exports single model"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER'}
 
     @classmethod
     def poll(cls, context):
@@ -742,11 +820,11 @@ class SimpleExport(Operator):
             self.report({'ERROR'}, f"Not Triangulated: {', '.join(obj)}")
             return {'CANCELLED'} 
         
-        gltf = context.scene.devkit_props.export_gltf 
+        gltf = context.scene.devkit_props.file_gltf 
         directory = context.scene.devkit_props.export_directory
         export_path = os.path.join(directory, "untitled")
         export_settings = FileExport.get_export_settings(gltf)
-
+        
         force_yas(context)
 
         if gltf:
@@ -786,7 +864,6 @@ class BatchQueue(Operator):
         
         prop = context.scene.devkit_props
         selected_directory = prop.export_directory
-        self.gltf = prop.export_gltf
         self.body_slot = prop.export_body_slot
         
         if not os.path.exists(selected_directory):
@@ -818,14 +895,15 @@ class BatchQueue(Operator):
                 self.report({'ERROR'}, "No valid combinations!")
                 return {'CANCELLED'} 
             
-        self.collection_state(context)
-        bpy.ops.ya.collection_manager()
+        self.collection_state()
+        bpy.ops.ya.collection_manager(preset="Export")
 
         force_yas(context)
         if "Chest" in self.body_slot:
             obj = get_object_from_mesh("Torso")
             yas = obj.modifiers["YAS Toggle"].show_viewport
-            BatchQueue.ivcs_mune(context, yas)
+            visible_obj = visible_meshobj()
+            BatchQueue.ivcs_mune(visible_obj, yas)
 
         BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot, gen_options)
         return {'FINISHED'}
@@ -833,10 +911,10 @@ class BatchQueue(Operator):
     # The following functions is executed to establish the queue and valid options 
     # before handing all variables over to queue processing
 
-    def collection_state(self, context):
-        context.scene.devkit_props.collection_state.clear()
+    def collection_state(self):
+        collection_state = bpy.context.scene.devkit_props.collection_state
+        collection_state.clear()
         collections = []
-
         match self.body_slot:
             case "Chest":
                 collections = ["Chest"]
@@ -862,8 +940,8 @@ class BatchQueue(Operator):
                 collections = ["Feet"]
 
         for name in collections:
-            collection_state = context.scene.devkit_props.collection_state.add()
-            collection_state.collection_name = name
+            state = collection_state.add()
+            state.name = name
 
     def get_size_options(self, context):
         options = {}
@@ -1028,9 +1106,10 @@ class BatchQueue(Operator):
         if queue:
             return 0.1
         else:
-            if "Chest" in body_slot:
-                obj = get_object_from_mesh("Torso")
-                BatchQueue.ivcs_mune(context, obj)
+            if body_slot == "Chest":
+                visible_obj = visible_meshobj()
+                BatchQueue.ivcs_mune(visible_obj)
+            bpy.ops.ya.collection_manager(preset="Restore")
             return None
 
     # These functions are responsible for applying the correct model state and appropriate file name.
@@ -1091,7 +1170,7 @@ class BatchQueue(Operator):
             ob[gen].mute = False
                         
     def name_generator(options, size, gen, gen_options, body_slot):
-        yiggle = bpy.context.scene.devkit_props.button_force_yas
+        yiggle = bpy.context.scene.devkit_props.force_yas
 
         if body_slot == "Chest/Legs":
             body_slot = "Chest"
@@ -1150,30 +1229,28 @@ class BatchQueue(Operator):
         for key in reset_shape_keys:   
             ob[key].mute = True
 
-    def ivcs_mune(context, yas=False):
-        for obj in bpy.context.scene.objects:
-            if obj.visible_get(view_layer=bpy.context.view_layer) and obj.type == "MESH":
-                for group in obj.vertex_groups:
-                    try:
-                        if yas:
-                            if group.name == "j_mune_r":
-                                group.name = "iv_c_mune_r"
-                            if group.name == "j_mune_l":
-                                group.name = "iv_c_mune_l"
-                        else:
-                            if group.name == "iv_c_mune_r":
-                                    group.name = "j_mune_r"
-                            if group.name == "iv_c_mune_l":
-                                group.name = "j_mune_l"
-                    except:
-                        continue
+    def ivcs_mune(visible_obj, yas=False):
+        for obj in visible_obj:
+            for group in obj.vertex_groups:
+                try:
+                    if yas:
+                        if group.name == "j_mune_r":
+                            group.name = "iv_c_mune_r"
+                        if group.name == "j_mune_l":
+                            group.name = "iv_c_mune_l"
+                    else:
+                        if group.name == "iv_c_mune_r":
+                                group.name = "j_mune_r"
+                        if group.name == "iv_c_mune_l":
+                            group.name = "j_mune_l"
+                except:
+                    continue
       
     
 class FileExport(Operator):
     bl_idname = "ya.file_export"
     bl_label = "Export"
     bl_description = ""
-    bl_options = {'UNDO'}
 
     file_name: StringProperty() # type: ignore
 
@@ -1181,7 +1258,7 @@ class FileExport(Operator):
             FileExport.export_template(context, self.file_name)
 
     def export_template(context, file_name):
-        gltf = context.scene.devkit_props.export_gltf
+        gltf = context.scene.devkit_props.file_gltf
         selected_directory = context.scene.devkit_props.export_directory
 
         export_path = os.path.join(selected_directory, file_name)
@@ -1239,6 +1316,82 @@ class BodyPartSlot(Operator):
         return {'FINISHED'}
 
 
+class SimpleImport(Operator):
+    bl_idname = "ya.simple_import"
+    bl_label = "Open Import Window"
+    bl_description = "Import a file in the selected format"
+    bl_options = {'UNDO'}
+
+    preset: StringProperty() # type: ignore
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == "OBJECT"
+    
+    def execute(self, context):
+        gltf = context.scene.devkit_props.file_gltf
+        if gltf:
+            bpy.ops.import_scene.gltf('INVOKE_DEFAULT')
+        else:
+            bpy.ops.import_scene.fbx('INVOKE_DEFAULT', ignore_leaf_bones=True)
+
+        return {"FINISHED"}
+    
+
+class SimpleCleanUp(Operator):
+    bl_idname = "ya.simple_cleanup"
+    bl_label = "Open Import Window"
+    bl_description = "Cleanup the selected files"
+    bl_options = {'UNDO'}
+
+    preset: StringProperty() # type: ignore
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == "OBJECT"
+    
+    def execute(self, context):
+        props = context.scene.devkit_props
+        if props.button_fix_parent:
+            self.fix_parent()
+        if props.button_update_material:
+            self.update_material()
+        if props.rename_import != "":
+            print("Renaming...")
+            self.rename_import()
+        
+        return {"FINISHED"}
+
+    def update_material(self):
+        selected = bpy.context.selected_objects
+        for obj in selected:
+            bpy.context.active_object = obj
+            if obj.type == "MESH":
+                material = obj.active_material
+                material.surface_render_method = "DITHERED"
+                material.use_backface_culling = True
+
+    def fix_parent(self):
+        selected = bpy.context.selected_objects
+        for obj in selected:
+            bpy.context.active_object = obj
+            old_transform = obj.matrix_world.copy()
+            obj.parent = bpy.data.objects["Skeleton"]
+            obj.matrix_world = old_transform
+            bpy.ops.object.transform_apply(location=True, scale=True, rotation=True)
+            if obj.type != "MESH":
+                bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
+
+    def rename_import(self):
+        selected = bpy.context.selected_objects
+        for obj  in selected:
+            bpy.context.active_object = obj
+            if obj.type == "MESH":
+                split = obj.name.split()
+                split[0] = bpy.context.scene.devkit_props.rename_import
+                obj.name = " ".join(split)
+
+
 class DirSelector(Operator):
     bl_idname = "ya.dir_selector"
     bl_label = "Select Folder"
@@ -1264,13 +1417,11 @@ class DirSelector(Operator):
     def execute(self, context):
         actual_dir_prop = f"{self.category}_directory"
         display_dir_prop = f"{self.category}_display_directory"
-        selected_file = self.directory  
+        selected_file = Path(self.directory)  
 
-        if os.path.isdir(selected_file):
-            setattr(context.scene.devkit_props, actual_dir_prop, selected_file)
-            display_dir = self.directory_short(selected_file, 3) 
-
-            setattr(context.scene.devkit_props, display_dir_prop, display_dir)
+        if selected_file.is_dir():
+            setattr(context.scene.devkit_props, actual_dir_prop, str(selected_file))
+            setattr(context.scene.devkit_props, display_dir_prop, str(Path(*selected_file.parts[-3:])))
             self.report({"INFO"}, f"Directory selected: {selected_file}")
         
         else:
@@ -1278,29 +1429,7 @@ class DirSelector(Operator):
         
         return {'FINISHED'}
     
-    def directory_short(directory, amount):
-        if os.path.exists(directory):
-            try:
-                full_path = os.path.normpath(directory)
 
-                path_parts = full_path.split(os.sep)
-
-                last_folders = os.sep.join(path_parts[-amount:])
-
-                return last_folders
-            except:
-                full_path = os.path.normpath(directory)
-
-                path_parts = full_path.split(os.sep)
-
-                last_folders = os.sep.join(path_parts[-1:])
-
-                return last_folders
-
-        else:
-            return None
-
-    
 class Overview(Panel):
     bl_idname = "VIEW3D_PT_YA_Overview"
     bl_space_type = "VIEW_3D"
@@ -1359,17 +1488,14 @@ class Overview(Panel):
             
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
             row.prop(section_prop, "button_chest_shapes", text="", icon=icon, emboss=False)
-            row.label(text="CHEST")
+            row.label(text="Chest")
             
             button_row = row.row(align=True)
             button_row.prop(section_prop, "shape_mq_chest_bool", text="", icon="ARMATURE_DATA")
             button_row.prop(section_prop, "button_advanced_expand", text="", icon="TOOL_SETTINGS")
 
             if button:
-                box.separator(factor=0.5,type="LINE")
-                self.chest_shapes(box, section_prop, mq, torso)
-
-            layout.separator(factor=0.1)
+                self.chest_shapes(layout, section_prop, mq, torso)
 
             # LEGS
 
@@ -1380,16 +1506,13 @@ class Overview(Panel):
             
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
             row.prop(section_prop, "button_leg_shapes", text="", icon=icon, emboss=False)
-            row.label(text="LEGS")
+            row.label(text="Legs")
             
             button_row = row.row(align=True)
             button_row.prop(section_prop, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
 
             if button:
-                box.separator(factor=0.5,type="LINE")
-                self.leg_shapes(box, section_prop, mq, legs)
-
-            layout.separator(factor=0.1)
+                self.leg_shapes(layout, section_prop, mq, legs)
             
             # OTHER
 
@@ -1399,16 +1522,13 @@ class Overview(Panel):
             row = box.row(align=True)
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
             row.prop(section_prop, "button_other_shapes", text="", icon=icon, emboss=False)
-            row.label(text="HANDS/FEET")
+            row.label(text="Hands/Feet")
             
             button_row = row.row(align=True)
             button_row.prop(section_prop, "shape_mq_other_bool", text="", icon="ARMATURE_DATA")
 
             if button:
-                box.separator(factor=0.5,type="LINE")
-                self.other_shapes(box, section_prop, mq, hands, feet)
-
-        layout.separator(factor=0.1)
+                self.other_shapes(layout, section_prop, mq, hands, feet)
 
         # YAS MENU
 
@@ -1420,37 +1540,11 @@ class Overview(Panel):
         
         icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
         row.prop(section_prop, "button_yas_expand", text="", icon=icon, emboss=False)
-        row.label(text="YET ANOTHER SKELETON")
+        row.label(text="Yet Another Skeleton")
 
         if button:
-            box.separator(factor=0.5,type="LINE")
-            row = box.row(align=True)
-            icon = 'CHECKMARK' if torso.toggle_yas else 'PANEL_CLOSE'
-            row.prop(torso, "toggle_yas", text="Chest", icon=icon)
-            icon = 'CHECKMARK' if hands.toggle_yas else 'PANEL_CLOSE'
-            row.prop(hands, "toggle_yas", text="Hands", icon=icon)
-            icon = 'CHECKMARK' if feet.toggle_yas else 'PANEL_CLOSE'
-            row.prop(feet, "toggle_yas", text="Feet", icon=icon)
-
-            box.separator(factor=0.5,type="LINE")
-
-            row = box.row(align=True)
-            col2 = row.column(align=True)
-            col2.label(text="Legs:")
-            icon = 'CHECKMARK' if legs.toggle_yas else 'PANEL_CLOSE'
-            col2.prop(legs, "toggle_yas", text="YAS", icon=icon)
-            icon = 'CHECKMARK' if legs.toggle_yas_gen else 'PANEL_CLOSE'
-            col2.prop(legs, "toggle_yas_gen", text="Genitalia", icon=icon)
-
-            col = row.column(align=True)
-            col.label(text="Mannequin:")
-            icon = 'CHECKMARK' if mq.toggle_yas else 'PANEL_CLOSE'
-            col.prop(mq, "toggle_yas", text="YAS", icon=icon)
-            icon = 'CHECKMARK' if mq.toggle_yas_gen else 'PANEL_CLOSE'
-            col.prop(mq, "toggle_yas_gen", text="Genitalia", icon=icon) 
-
-            box.separator(factor=0.1)
-            
+            self.yas_menu(layout, section_prop, mq, torso, legs, hands, feet)
+          
     def collection_context(self, context):
         # Links mesh name to the standard collections)
         body_part_collections = {
@@ -1475,7 +1569,8 @@ class Overview(Panel):
         else:
             return get_object_from_mesh("Mannequin")
 
-    def chest_shapes(self, layout, section_prop, mq, torso):  
+    def chest_shapes(self, layout, section_prop, mq, torso):
+        layout.separator(factor=0.1)  
         if section_prop.shape_mq_chest_bool:
             target = mq
             key_target = "mq"
@@ -1519,9 +1614,8 @@ class Overview(Panel):
         operator.target = "Torso"
         operator.preset = "other"
 
-        layout.separator(factor=0.5,type="LINE")
-
-        row = layout.row()
+        box = layout.box()
+        row = box.row()
         
         if not small_mute and not medium_mute:
             row.alignment = "CENTER"
@@ -1566,9 +1660,9 @@ class Overview(Panel):
                 col2 = split.column(align=True)
                 col2.prop(section_prop, f"key_squeeze_small_{key_target}")
                 col2.prop(section_prop, f"key_nipnops_small_{key_target}")
-
-        layout.separator(factor=0.5,type="LINE")
         
+        layout.separator(factor=0.1)
+
         row = layout.row()
         split = row.split(factor=0.25, align=True) 
         col = split.column(align=True)
@@ -1584,6 +1678,7 @@ class Overview(Panel):
         layout.separator(factor=0.1)
 
     def leg_shapes(self, layout, section_prop, mq, legs):
+        layout.separator(factor=0.1)
         if section_prop.shape_mq_legs_bool:
             target = mq
         else:
@@ -1691,6 +1786,35 @@ class Overview(Panel):
         
         layout.separator(factor=0.1)
 
+    def yas_menu(self, layout, section_prop, mq, torso, legs, hands, feet):
+        layout.separator(factor=0.1)
+        row = layout.row(align=True)
+        icon = 'CHECKMARK' if torso.toggle_yas else 'PANEL_CLOSE'
+        row.prop(torso, "toggle_yas", text="Chest", icon=icon)
+        icon = 'CHECKMARK' if hands.toggle_yas else 'PANEL_CLOSE'
+        row.prop(hands, "toggle_yas", text="Hands", icon=icon)
+        icon = 'CHECKMARK' if feet.toggle_yas else 'PANEL_CLOSE'
+        row.prop(feet, "toggle_yas", text="Feet", icon=icon)
+
+        layout.separator(factor=0.5,type="LINE")
+
+        row = layout.row(align=True)
+        col2 = row.column(align=True)
+        col2.label(text="Legs:")
+        icon = 'CHECKMARK' if legs.toggle_yas else 'PANEL_CLOSE'
+        col2.prop(legs, "toggle_yas", text="YAS", icon=icon)
+        icon = 'CHECKMARK' if legs.toggle_yas_gen else 'PANEL_CLOSE'
+        col2.prop(legs, "toggle_yas_gen", text="Genitalia", icon=icon)
+
+        col = row.column(align=True)
+        col.label(text="Mannequin:")
+        icon = 'CHECKMARK' if mq.toggle_yas else 'PANEL_CLOSE'
+        col.prop(mq, "toggle_yas", text="YAS", icon=icon)
+        icon = 'CHECKMARK' if mq.toggle_yas_gen else 'PANEL_CLOSE'
+        col.prop(mq, "toggle_yas_gen", text="Genitalia", icon=icon) 
+
+        layout.separator(factor=0.1)
+
     def other_shapes(self, layout, section_prop, mq, hands, feet):
         if section_prop.shape_mq_other_bool:
                         target = mq
@@ -1779,7 +1903,7 @@ class Overview(Panel):
             operator.key = "Curved"
             operator.target = "Hands"
             operator.preset = "other"
-
+    
         layout.separator(type="LINE")
 
         row = layout.row(align=True)
@@ -1798,20 +1922,24 @@ class Overview(Panel):
             split = row.split(factor=0.25, align=True)
             split.alignment = 'RIGHT'  # Align label to the right
             split.label(text="Nails/Claws:")
-            icon = "HIDE_ON" if nails_col else "HIDE_OFF"
+            icon = "HIDE_ON" if toenails_col else "HIDE_OFF"
             operator = split.operator("ya.apply_visibility", text="", icon=icon, depress=not toenails_col)
             operator.key = "Nails"
             operator.target = "Feet"
-            split.operator("ya.apply_visibility", text="", icon=icon, depress=not toeclawsies_col).target = "Feet"
-        
-        row = layout.row(align=True)
+            icon = "HIDE_ON" if toeclawsies_col else "HIDE_OFF"
+            operator = split.operator("ya.apply_visibility", text="", icon=icon, depress=not toeclawsies_col)
+            operator.key = "Clawsies"
+            operator.target = "Feet"
+
+        box = layout.box()
+        row = box.row(align=True)
         split = row.split(factor=0.25)
         col = split.column(align=True)
         col.alignment = "RIGHT"
         col.label(text="Heels:")
         col.label(text="Cinderella:")
         col.label(text="Mini Heels:")
-
+        
         col2 = split.column(align=True)
         col2.prop(section_prop, f"key_heels_{key_target}")
         col2.prop(section_prop, f"key_cinderella_{key_target}")
@@ -1835,28 +1963,26 @@ class FileManager(Panel):
 
         # EXPORT
         button = section_prop.button_export_expand
-        box = self.dropdown_header(button, section_prop, "button_export_expand", "EXPORT", "EXPORT")
+        box = self.dropdown_header(button, section_prop, "button_export_expand", "Export", "EXPORT")
         if button:
-            box.separator(factor=0.5,type="LINE")
-            self.draw_export(box, section_prop)
-
-        layout.separator(factor=0.1)
+            self.draw_export(layout, section_prop)
 
         # IMPORT
         button = section_prop.button_import_expand
-        box = self.dropdown_header(button, section_prop, "button_import_expand", "IMPORT", "IMPORT")
+        box = self.dropdown_header(button, section_prop, "button_import_expand", "Import", "IMPORT")
+        if button:
+            self.draw_import(layout, section_prop)
 
-        layout.separator(factor=0.1)
+        if hasattr(context.scene, "pmp_props"):
+                from modpack.panel import draw_modpack
+                section_prop = context.scene.pmp_props
+                # MODPACKER
+                button = section_prop.button_modpack_expand
+                box = self.dropdown_header(button, section_prop, "button_modpack_expand", "Modpack", "NEWFOLDER")
 
-        if addon_installed:
-            section_prop = context.scene.ya_props
-            # MODPACKER
-            button = section_prop.button_modpack_expand
-            box = self.dropdown_header(button, section_prop, "button_modpack_expand", "MODPACK", "NEWFOLDER")
+                if button :
+                    draw_modpack(self, layout, section_prop, devkit=True)
 
-            if button :
-                
-                self.draw_modpack(layout, section_prop)
             
     def draw_export(self, layout, section_prop):
         row = layout.row(align=True)
@@ -1869,17 +1995,17 @@ class FileManager(Panel):
         col2 = row.column(align=True)
         col2.operator("ya.batch_queue", text="Batch Export")
         
-        export_text = "GLTF" if section_prop.export_gltf else "FBX"
-        icon = "BLENDER" if section_prop.export_gltf else "VIEW3D"
+        export_text = "GLTF" if section_prop.file_gltf else "FBX"
+        icon = "BLENDER" if section_prop.file_gltf else "VIEW3D"
         col3 = row.column(align=True)
         col3.alignment = "RIGHT"
-        col3.prop(section_prop, "export_gltf", text=export_text, icon=icon, invert_checkbox=True)
+        col3.prop(section_prop, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
 
 
         layout.separator(factor=1, type='LINE')
 
-
-        row = layout.row(align=True)
+        box = layout.box()
+        row = box.row(align=True)
         if section_prop.export_body_slot == "Chest/Legs":
             row.label(text=f"Body Part: Chest")
         else:
@@ -2012,153 +2138,72 @@ class FileManager(Panel):
 
             self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
        
-        layout.separator(factor=0.5, type="LINE")
+        layout.separator(factor=2, type="LINE")
 
-        button = section_prop.button_export_options
-        
+        box = layout.box()
+        row = box.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="Advanced Options")
+
+        layout.separator(factor=0.1) 
+
         row = layout.row(align=True)
-        split = row.split(factor=1)
-        sub = split.row(align=True)
-        sub.alignment = 'LEFT'
+        col = row.column(align=True)
+        icon = 'CHECKMARK' if section_prop.force_yas else 'PANEL_CLOSE'
+        col.prop(section_prop, "force_yas", text="Force YAS", icon=icon)
+        col2 = row.column(align=True)
+        icon = 'CHECKMARK' if section_prop.check_tris else 'PANEL_CLOSE'
+        col2.prop(section_prop, "check_tris", text="Check Triangulation", icon=icon)
 
-        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        sub.prop(section_prop, "button_export_options", text="", icon=icon, emboss=False)
-        sub.label(text="Advanced Options")
-        if button:
-            row = layout.row(align=True)
-            col = row.column(align=True)
-            icon = 'CHECKMARK' if section_prop.force_yas else 'PANEL_CLOSE'
-            col.prop(section_prop, "force_yas", text="Force YAS", icon=icon)
-            col2 = row.column(align=True)
-            icon = 'CHECKMARK' if section_prop.check_tris else 'PANEL_CLOSE'
-            col2.prop(section_prop, "check_tris", text="Check Triangulation", icon=icon)
+        layout.separator(factor=0.5)
+    
+    def draw_import(self, layout, section_prop):
+        layout = self.layout
+        row = layout.row(align=True)
+        col = row.column(align=True)
+        col.operator("ya.simple_import", text="Import")
+
+        col2 = row.column(align=True)
+        col2.operator("ya.simple_cleanup", text="Cleanup")
+        
+        export_text = "GLTF" if section_prop.file_gltf else "FBX"
+        icon = "BLENDER" if section_prop.file_gltf else "VIEW3D"
+        col3 = row.column(align=True)
+        col3.alignment = "RIGHT"
+        col3.prop(section_prop, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
+
+        layout.separator(factor=2, type="LINE")
+
+        box = layout.box()
+        row = box.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="Cleanup Options") 
+
+        layout.separator(factor=0.1)  
+
+        row = layout.row(align=True)
+        split = row.split(factor=0.33)
+        col = split.column(align=True)
+        col.alignment = "RIGHT"
+        col.label(text="Fix Parenting:")
+        col.label(text="Update Material:")
+        col.label(text="Rename:")
+        
+        col2 = split.column(align=True)
+        col2.alignment = "RIGHT"
+        icon = 'CHECKMARK' if section_prop.button_fix_parent else 'PANEL_CLOSE'
+        text = 'Enabled' if section_prop.button_fix_parent else 'Disabled'
+        col2.prop(section_prop, "fix_parent", text=text, icon=icon)
+        icon = 'CHECKMARK' if section_prop.button_fix_parent else 'PANEL_CLOSE'
+        text = 'Enabled' if section_prop.button_update_material else 'Disabled'
+        col2.prop(section_prop, "update_material", text=text, icon=icon)
+        col2.prop(section_prop, "rename_import", text="")
+    
 
             
 
         layout.separator(factor=0.5)
 
-    def draw_modpack(self, layout, section_prop):
-        layout.separator(factor=0.5,type="LINE")
-        row = layout.row(align=True)
-        split = row.split(factor=0.65, align=True)
-        icon = "CHECKMARK" if section_prop.consoletools_status == "ConsoleTools Ready!" else "X"
-        split.label(text=section_prop.consoletools_status, icon=icon)
-        split.operator("ya.file_console_tools", text="Check")
-        row.operator("ya.consoletools_dir", icon="FILE_FOLDER", text="")
-
-        layout.separator(factor=0.5,type="LINE")
-
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Model:")
-        split.prop(section_prop, "game_model_path", text="")
-        model_path = section_prop.game_model_path
-        icon = "CHECKMARK" if model_path.startswith("chara") or model_path.endswith("mdl") else "X"
-        row.label(icon=icon)
-        
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="FBX:")
-        split.prop(section_prop, "savemodpack_display_directory", text="")
-        
-        row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "savemodpack"
-
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.label(text="")
-        split.operator("ya.directory_copy", text="Copy from Export") 
-
-        row = layout.row(align=True)
-        row.prop(section_prop, "button_modpack_replace", text="New", icon="FILE_NEW", invert_checkbox=True)
-        row.prop(section_prop, "button_modpack_replace", text="Update", icon="CURRENT_FILE",)
-
-        if section_prop.button_modpack_replace:
-
-            row = layout.row()
-            split = row.split(factor=0.33)
-            col2 = split.column(align=True)
-            col2.label(text="Ver.")
-            col2.prop(section_prop, "loadmodpack_version", text="")
-            col = split.column(align=True)
-            col.label(text="Modpack:")
-            col.prop(section_prop, "loadmodpack_display_directory", text="", emboss=False)
-            split2 = row.split(factor=0.8)
-            col3 = split2.column(align=True)
-            col3.alignment = "CENTER"
-            col3.label(text="")
-            col3.prop(section_prop, "loadmodpack_author", text="by", emboss=False)
-
-        
-            row = layout.row(align=True)
-            split = row.split(factor=0.25, align=True)
-            split.label(text="")
-            split.operator("ya.pmp_selector", icon="FILE_FOLDER", text="Choose Modpack")
-            
-            
-            row = layout.row(align=True)
-            split = row.split(factor=0.25, align=True)
-            split.alignment = "RIGHT"
-            split.label(text="Replace:")
-            split.prop(section_prop, "modpack_groups", text="")
-
-            row = layout.row()
-            split = row.split(factor=0.25)
-            col2 = split.column(align=True)
-            if section_prop.modpack_groups == "0":
-                col2.prop(section_prop, "mod_group_type", text="")
-            else:
-                text = "" if section_prop.modpack_groups == "0" else "Rename:"
-                col2.alignment = "RIGHT"
-                col2.label(text=text)
-            col = split.column(align=True)
-            col.prop(section_prop, "modpack_rename_group", text="")
-        
-        else:
-            
-
-            row = layout.row()
-            split = row.split(factor=0.25)
-            col2 = split.column(align=True)
-            col2.label(text="Ver.")
-            col2.prop(section_prop, "new_mod_version", text="")
-            col = split.column(align=True)
-            col.label(text="Mod Name:")
-            col.prop(section_prop, "new_mod_name", text="")
-
-            row = layout.row()
-            split = row.split(factor=0.25)
-            col2 = split.column(align=True)
-            col2.label(text="Type:")
-            col2.prop(section_prop, "mod_group_type", text="")
-            col = split.column(align=True)
-            col.label(text="Group Name:")
-            col.prop(section_prop, "modpack_rename_group", text="")
-
-            row = layout.row(align=True)
-            split = row.split(factor=0.25, align=True)
-            split.alignment = "RIGHT"
-            split.label(text="Author:")
-            split.prop(section_prop, "author_name", text="")
-
-
-
-        row = layout.row(align=True)
-        row.operator("ya.file_modpacker", text="Convert & Pack").preset = "convert_pack"
-        row.operator("ya.file_modpacker", text="Convert").preset = "convert"
-        row.operator("ya.file_modpacker", text="Pack").preset = "pack"
-
-        layout.separator(factor=0.5, type="LINE")
-
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Status:")
-        split.prop(section_prop, "modpack_progress", text="", emboss=False)
-
-        layout.separator(factor=0.1)
-        
     def dynamic_column_buttons(self, columns, box, section_prop, labels, category, button_type):
         row = box.row(align=True)
 
@@ -2202,17 +2247,20 @@ class FileManager(Panel):
         for slot, icon in options:
             depress = True if section_prop.export_body_slot == slot else False
             row.operator("ya.set_body_part", text="", icon=icon, depress=depress).body_part = slot
-        
+
 
 CLASSES = [
     CollectionState,
+    ObjectState,
     DevkitProps,
     CollectionManager,
     ApplyShapes,
     ApplyVisibility,
     SimpleExport,
+    SimpleCleanUp,
     BatchQueue,
     FileExport,
+    SimpleImport,
     BodyPartSlot,
     DirSelector
 ]
@@ -2223,9 +2271,31 @@ UI_CLASSES = [
 ]
 
 
-def delayed_setup():
+def delayed_setup(dummy=None):
+    global devkit_registered  
+    if devkit_registered:
+        return None
     DevkitProps.chest_key_floats()
     DevkitProps.feet_key_floats()
+    context = bpy.context
+
+    try:
+        area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
+        view3d = [space for space in area.spaces if space.type == 'VIEW_3D'][0]
+
+        with context.temp_override(area=area, space=view3d):
+            view3d.show_region_ui = True
+            region = [region for region in area.regions if region.type == 'UI'][0]
+            region.active_panel_category = 'Devkit'
+    except:
+        pass
+
+    addon_status = addon_utils.check("Yet Another Addon")
+    if addon_status:
+        addon_utils.disable("Yet Another Addon")
+        addon_utils.enable("Yet Another Addon")
+    
+    devkit_registered = True
 
 def set_devkit_properties():
     bpy.types.Scene.devkit_props = PointerProperty(
@@ -2233,20 +2303,24 @@ def set_devkit_properties():
     
     bpy.types.Scene.collection_state = bpy.props.CollectionProperty(
         type=CollectionState)
+    
+    bpy.types.Scene.object_state = bpy.props.CollectionProperty(
+        type=ObjectState)
 
     DevkitProps.ui_buttons()
-    bpy.app.timers.register(delayed_setup, first_interval=1.0)
     
     DevkitProps.export_bools()
     DevkitProps.extra_options()
-
-
+ 
 def register():
 
     for cls in CLASSES:
         bpy.utils.register_class(cls)
 
     set_devkit_properties()
+     
+    bpy.app.timers.register(delayed_setup, first_interval=1)
+    bpy.app.handlers.load_post.append(delayed_setup)
 
     for cls in UI_CLASSES:
         bpy.utils.register_class(cls)
@@ -2257,6 +2331,8 @@ def unregister():
 
     del bpy.types.Scene.devkit_props
     del bpy.types.Scene.collection_state
+    del bpy.types.Scene.object_state
+    bpy.app.handlers.load_post.remove(delayed_setup)
 
 if __name__ == "__main__":
     register()
