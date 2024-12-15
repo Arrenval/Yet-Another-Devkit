@@ -1,40 +1,36 @@
-DEVKIT_VER = (0, 5, 0)
+DEVKIT_VER = (0, 6, 0)
 
 import os
 import bpy   
-import time
-import random
 import addon_utils
 
 from importlib     import reload
 from pathlib       import Path
-from functools     import partial
-from itertools     import combinations
-from bpy.types     import Operator, Panel, PropertyGroup 
-from bpy.props     import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, IntProperty
+from bpy.types     import Operator, Panel, PropertyGroup, Object, Mesh, Context, UILayout
+from bpy.props     import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, IntProperty, CollectionProperty
 
 
 #       Shapes:         (Name,          Slot/Misc,      Category, Description,                                           Body,             Shape Key)
 ALL_SHAPES = {
-        "Large":        ("Large",       "Chest",        "Large",  "Standard Large",                                      "",               ""),
+        "Large":        ("Large",       "Chest",        "Large",  "Standard Large",                                      "",               "LARGE"),
         "Omoi":         ("Omoi",        "Chest",        "Large",  "Large, but saggier",                                  "",               ""),
         "Sugoi Omoi":   ("Sugoi Omoi",  "Chest",        "Large",  "Omoi, but saggier",                                   "",               ""),
-        "Medium":       ("Medium",      "Chest",        "Medium", "Standard Medium",                                     "",               "MEDIUM ----------------------------"),
+        "Medium":       ("Medium",      "Chest",        "Medium", "Standard Medium",                                     "",               "MEDIUM"),
         "Sayonara":     ("Sayonara",    "Chest",        "Medium", "Medium with more separation",                         "",               ""),
         "Tsukareta":    ("Tsukareta",   "Chest",        "Medium", "Medium, but saggier",                                 "",               ""),
         "Tsukareta+":   ("Tsukareta+",  "Chest",        "Medium", "Tsukareta, but saggier",                              "",               ""),
         "Mini":         ("Mini",        "Chest",        "Medium", "Medium, but smaller",                                 "",               ""),
-        "Small":        ("Small",       "Chest",        "Small",  "Standard Small",                                      "",               "SMALL ------------------------------"),
+        "Small":        ("Small",       "Chest",        "Small",  "Standard Small",                                      "",               "SMALL"),
         "Rue":          ("Rue",         "Chest",        "",       "Adds tummy",                                          "",               "Rue"),
         "Buff":         ("Buff",        "Chest",        "",       "Adds muscle",                                         "",               "Buff"),
         "Piercings":    ("Piercings",   "Chest",        "",       "Adds piercings",                                      "",               ""),
         "Rue Legs":     ("Rue",         "Legs",         "",       "Adds tummy and hip dips.",                            "",               "Rue"),
-        "Melon":        ("Melon",       "Legs",         "Legs",   "For crushing melons",                                 "",               ""),
+        "Melon":        ("Melon",       "Legs",         "Legs",   "For crushing melons",                                 "",               "Gen A/Watermelon Crushers"),
         "Skull":        ("Skull",       "Legs",         "Legs",   "For crushing skulls",                                 "",               "Skull Crushers"),
         "Small Butt":   ("Small Butt",  "Legs",         "Butt",   "Not actually small",                                  "",               "Small Butt"),
         "Mini Legs":    ("Mini",        "Legs",         "Legs",   "Smaller legs",                                        "",               "Mini"),
         "Soft Butt":    ("Soft Butt",   "Legs",         "Butt",   "Less perky butt",                                     "",               "Soft Butt"),
-        "Hip Dips":     ("Hip Dips",    "Legs",         "Hip",    "Removes hip dips on Rue, adds them on YAB",           "",               ""),
+        "Hip Dips":     ("Hip Dips",    "Legs",         "Hip",    "Removes hip dips on Rue, adds them on YAB",           "",               "Alt Hips"),
         "Gen A":        ("Gen A",       "Legs",         "Vagina", "Labia majora",                                        "",               ""),
         "Gen B":        ("Gen B",       "Legs",         "Vagina", "Visible labia minora",                                "",               "Gen B"),
         "Gen C":        ("Gen C",       "Legs",         "Vagina", "Open vagina",                                         "",               "Gen C"),
@@ -59,60 +55,19 @@ is_exporting: bool      = False
 
 devkit_registered: bool = False
 
-
-def visible_meshobj():
-    visible_meshobj = []
-    for obj in bpy.context.scene.objects:
-        if obj.visible_get(view_layer=bpy.context.view_layer) and obj.type == "MESH":
-            visible_meshobj.append(obj)
-    return visible_meshobj
-
 def get_object_from_mesh(mesh_name:str):
     for obj in bpy.context.scene.objects:
         if obj.type == "MESH" and obj.data.name == mesh_name:
             return obj
     return None
 
-def get_chest_size_keys(chest_subsize:str):
-    """category, sizekey"""
-    chest_category = get_chest_category(chest_subsize)
-    
-    size_key = {
-        "Large": "LARGE -------------------------------",
-        "Medium": "MEDIUM ----------------------------",
-        "Small": "SMALL ------------------------------"
-    }
-    return size_key[chest_category]
-
-def get_chest_category(size:str):
-    """subsize, category"""
-    if ALL_SHAPES[size][1] == "Chest":
-        return ALL_SHAPES[size][2]
-    else:
-        return None
-
-def get_shape_presets(size:str):
-        """subsize, [shapekey, value]"""
-        shape_presets = {
-        "Large":        {"Squeeze" : 0.3,    "Squish" : 0.0,  "Push-Up" : 0.0, "Omoi" : 0.0, "Sag" : 0.0, "Nip Nops" : 0.0},
-        "Omoi":         {"Omoi" : 1.0, "Sag" : 0.0},
-        "Sugoi Omoi":   {"Omoi" : 1.0, "Sag" : 1.0},
-        "Medium":       {"Squeeze" : 0.0,  "Squish" : 0.0, "Push-Up" : 0.0, "Mini" : 0.0, "Sayonara" : 0.0, "Sag" : 0.0, "Nip Nops" : 0.0},
-        "Sayonara":     {"Sayonara" : 1.0, "Sag" : 0.0},
-        "Tsukareta":    {"Sag" : 0.6},
-        "Tsukareta+":   {"Sag" : 1.0},
-        "Mini":         {"Mini" : 1.0},
-        "Small":        {"Squeeze" : 0.0, "Nip Nops" : 0.0}
-        }
-        return shape_presets[size]
-
-def has_shape_keys(obj):
+def has_shape_keys(obj:Object):
         if obj and obj.type == "MESH":
             if obj.data.shape_keys is not None:
                 return True
         return False
 
-def get_filtered_shape_keys(obj, key_filter:list):
+def get_filtered_shape_keys(obj:Mesh, key_filter:list):
         shape_keys = obj.shape_keys.key_blocks
         key_list = []
         to_exclude = ["Mini"]
@@ -131,28 +86,15 @@ def get_filtered_shape_keys(obj, key_filter:list):
         
         return key_list
 
-def update_directory(category:str):
-    prop = bpy.context.scene.devkit_props
-    actual_prop = f"{category}_directory"
-    display_prop = f"{category}_display_directory"
-
-    display_directory = getattr(prop, display_prop, "")
-
-    if os.path.exists(display_directory):  
-        setattr(prop, actual_prop, display_directory)
-        print (getattr(prop, actual_prop, ""))
-
-
 class CollectionState(PropertyGroup):
     name: bpy.props.StringProperty() # type: ignore
-
 
 class ObjectState(PropertyGroup):
     name: bpy.props.StringProperty() # type: ignore
     hide: bpy.props.BoolProperty() # type: ignore
 
-
 class DevkitProps(PropertyGroup):
+
     ui_buttons_list = [
     ("export",   "expand",   "Opens the category"),
     ("import",   "expand",   "Opens the category"),
@@ -165,18 +107,8 @@ class DevkitProps(PropertyGroup):
     ("import",   "options",  "Opens the category"),
     ("dynamic",  "view",     "Changes between a shape key view that focuses on the main controller in a collection or the active object"),
     ("force",    "yas",      "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
-   
     ]
-    
-    extra_buttons_list = [
-        ("check",    "tris",       True,   "Verify that the meshes have an active triangulation modifier"),
-        ("force",    "yas",        False,  "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
-        ("fix",      "parent",     True,   "Parents the meshes to the devkit skeleton and removes non-mesh objects"),
-        ("update",   "material",   True,   "Changes material rendering and enables backface culling"),
-        ("keep",     "shapekeys",  True,   "Preserves vanilla clothing shape keys"),
-        ("create",   "subfolder",  True,   "Creates a folder in your export directory for your exported body part"),
-        ]
-   
+
     mesh_list = [
         "Torso",
         "Waist",
@@ -198,6 +130,26 @@ class DevkitProps(PropertyGroup):
             ]
         
     @staticmethod
+    def shpk_bools():
+        for shape, (name, slot, shape_category, description, body, key) in ALL_SHAPES.items():
+            if key == "":
+                continue
+            if slot == "Hands" or slot == "Feet":
+                continue
+            if shape_category == "Vagina":
+                continue
+            slot_lower = slot.lower().replace("/", " ")
+            key_lower = key.lower().replace(" ", "_")
+            
+            prop_name = f"shpk_{slot_lower}_{key_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=False, 
+                )
+            setattr(DevkitProps, prop_name, prop)
+
+    @staticmethod
     def export_bools():
         for shape, (name, slot, shape_category, description, body, key) in ALL_SHAPES.items():
             slot_lower = slot.lower().replace("/", " ")
@@ -208,20 +160,6 @@ class DevkitProps(PropertyGroup):
                 name="", 
                 description=description,
                 default=False, 
-                )
-            setattr(DevkitProps, prop_name, prop)
-
-    @staticmethod
-    def extra_options():
-        for (name, category, default, description) in DevkitProps.extra_buttons_list:
-            category_lower = category.lower()
-            name_lower = name.lower()
-            
-            prop_name = f"{name_lower}_{category_lower}"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=default, 
                 )
             setattr(DevkitProps, prop_name, prop)
 
@@ -250,10 +188,12 @@ class DevkitProps(PropertyGroup):
         key_filter = ["squeeze", "squish", "pushup", "omoi", "sag", "nipnops", "sayonara", "mini"]
         torso = bpy.data.meshes["Torso"]
         mq = bpy.data.meshes["Mannequin"]
+        control = bpy.data.meshes["Chest Controller"]
         
         targets = {
              "torso": torso,
              "mq":    mq,
+             "ctrl":  control,
         }
         
         for name, obj in targets.items():
@@ -402,87 +342,23 @@ class DevkitProps(PropertyGroup):
         default=False, 
         )   # type: ignore
 
-    collection_state: bpy.props.CollectionProperty(type=CollectionState) # type: ignore
+    collection_state: CollectionProperty(type=CollectionState) # type: ignore
 
-    object_state: bpy.props.CollectionProperty(type=ObjectState) # type: ignore
+    object_state: CollectionProperty(type=ObjectState) # type: ignore
 
     overview_ui: EnumProperty(
         name= "",
-        description= "Select a body slot",
+        description= "Select an overview",
         items= [
-            ("Body", "Shape", "Body Overview."),
-            ("Shape Keys", "View", "Shape Key Overview."),
-            ("Settings", "Settings", "Devkit Settings."),
-            ("Info", "Info", "Useful info."),
+            ("Body", "Shape", "Body Overview"),
+            ("Shape Keys", "View", "Shape Key Overview"),
+            ("Settings", "Settings", "Devkit Settings"),
+            ("Info", "Info", "Useful info"),
         ]
         )  # type: ignore
     
-    export_body_slot: EnumProperty(
-        name= "",
-        description= "Select a body slot",
-        items= [
-            ("Chest", "Chest", "Chest export options."),
-            ("Legs", "Legs", "Leg export options."),
-            ("Hands", "Hands", "Hand export options."),
-            ("Feet", "Feet", "Feet export options."),
-            ("Chest & Legs", "Chest & Legs", "When you want to export Chest with Leg models.")]
-        )  # type: ignore
-
-    export_display_directory: StringProperty(
-        name="Export Folder",
-        default="Select Export Directory",  
-        maxlen=255,
-        update=lambda self, context: update_directory('export'),
-        ) # type: ignore
-    
-    export_directory: StringProperty(
-        default="Select Export Directory",
-        subtype="DIR_PATH", 
-        maxlen=255,
-        )  # type: ignore
-    
-    export_total: IntProperty(default=0) # type: ignore
-
-    export_progress: FloatProperty(default=0) # type: ignore
-
-    export_step: IntProperty(default=0) # type: ignore
-
-    export_time: FloatProperty(default=0) # type: ignore
-
-    export_file_name: StringProperty(name="",
-        default="",  
-        maxlen=255,
-        ) # type: ignore
-
-    import_display_directory: StringProperty(
-        name="Export Folder",
-        default="Select Export Directory",  
-        maxlen=255,
-        update=lambda self, context: update_directory('import'),
-        ) # type: ignore
-    
-    rename_import: StringProperty(
-        name="",
-        description="Renames the prefix of the selected meshes",
-        default="",
-        maxlen=255,
-        )  # type: ignore
-
-    file_gltf: BoolProperty(
-        name="",
-        description="Switch file format", 
-        default=False,
-        ) # type: ignore
-    
-    ui_size_category: StringProperty(
-        name="",
-        subtype="DIR_PATH", 
-        maxlen=255,
-        )  # type: ignore
-
-
 class CollectionManager(Operator):
-    bl_idname = "ya.collection_manager"
+    bl_idname = "yakit.collection_manager"
     bl_label = "Export"
     bl_description = "Combines chest options and exports them"
 
@@ -497,6 +373,7 @@ class CollectionManager(Operator):
         self.export_collections = [
             self.coll["Skeleton"],
             self.coll["Resources"],
+            self.coll["Controller"],
             self.coll["Data Sources"],
             self.coll["UV/Weights"],
             self.coll["Nail UVs"],
@@ -587,8 +464,40 @@ class CollectionManager(Operator):
             self.recursively_toggle_exclude(child, collection, exclude)
 
 
+def get_chest_size_keys(chest_subsize:str):
+    """category, sizekey"""
+    chest_category = get_chest_category(chest_subsize)
+    
+    size_key = {
+        "Large": "LARGE",
+        "Medium": "MEDIUM",
+        "Small": "SMALL"
+    }
+    return size_key[chest_category]
+
+def get_chest_category(size:str):
+    """subsize, category"""
+    if ALL_SHAPES[size][1] == "Chest":
+        return ALL_SHAPES[size][2]
+    else:
+        return None
+
+def get_shape_presets(size:str):
+        shape_presets = {
+        "Large":        {"Squeeze" : 0.3,    "Squish" : 0.0,  "Push-Up" : 0.0, "Omoi" : 0.0, "Sag" : 0.0, "Nip Nops" : 0.0},
+        "Omoi":         {"Omoi" : 1.0, "Sag" : 0.0},
+        "Sugoi Omoi":   {"Omoi" : 1.0, "Sag" : 1.0},
+        "Medium":       {"Squeeze" : 0.0,  "Squish" : 0.0, "Push-Up" : 0.0, "Mini" : 0.0, "Sayonara" : 0.0, "Sag" : 0.0, "Nip Nops" : 0.0},
+        "Sayonara":     {"Sayonara" : 1.0, "Sag" : 0.0},
+        "Tsukareta":    {"Sag" : 0.6},
+        "Tsukareta+":   {"Sag" : 1.0},
+        "Mini":         {"Mini" : 1.0},
+        "Small":        {"Squeeze" : 0.0, "Nip Nops" : 0.0}
+        }
+        return shape_presets[size]
+
 class ApplyShapes(Operator):
-    bl_idname = "ya.apply_shapes"
+    bl_idname = "yakit.apply_shapes"
     bl_label = ""
     bl_description = "Applies the selected option"
     bl_options = {'UNDO'}
@@ -599,15 +508,15 @@ class ApplyShapes(Operator):
 
     def execute(self, context):
         apply_mq = self.get_mannequin_category(context)
-        preset_target = "torso"
+        apply_target = "torso"
 
         if apply_mq:
             obj = get_object_from_mesh("Mannequin").data.shape_keys.key_blocks
-            preset_target = "mq"
+            apply_target = "mq"
         else:
             obj = self.get_obj() 
 
-        self.get_function(context, obj, preset_target)
+        self.get_function(context, obj, apply_target)
         return {"FINISHED"}
 
     def get_obj(self):
@@ -634,7 +543,7 @@ class ApplyShapes(Operator):
             case _:
                 return context.scene.devkit_props.shape_mq_chest_bool
 
-    def get_function(self, context, obj, preset_target):
+    def get_function(self, context, obj, apply_target:str):
         match self.preset:
             case "chest_category":
                 ApplyShapes.mute_chest_shapes(obj, self.key)
@@ -658,17 +567,17 @@ class ApplyShapes(Operator):
                 size = context.scene.devkit_props.chest_shape_enum
                 category = get_chest_category(size)
                 shape_presets = get_shape_presets(size)
-                ApplyShapes.reset_shape_values(preset_target, category)
-                ApplyShapes.apply_shape_values(preset_target, category, shape_presets)
+                ApplyShapes.reset_shape_values(apply_target, category)
+                ApplyShapes.apply_shape_values(apply_target, category, shape_presets)
                 ApplyShapes.mute_chest_shapes(obj, category)
             
-                if preset_target == "torso":
+                if apply_target == "torso":
                     bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
                 else:
                     bpy.context.view_layer.objects.active = get_object_from_mesh("Mannequin")
                 bpy.context.view_layer.update()
 
-    def apply_shape_values(apply_target, category, shape_presets):
+    def apply_shape_values(apply_target:str, category:str, shape_presets:dict[str, float]):
         dev_props = bpy.context.scene.devkit_props
         for shape_key in shape_presets:
             norm_key = shape_key.lower().replace(" ","").replace("-","")
@@ -681,7 +590,7 @@ class ApplyShapes(Operator):
             if hasattr(dev_props, prop):
                 setattr(dev_props, prop, 100 * shape_presets[shape_key])
             
-    def reset_shape_values(apply_target, category):
+    def reset_shape_values(apply_target:str, category):
         reset = get_shape_presets(category)
         dev_props = bpy.context.scene.devkit_props
 
@@ -696,7 +605,7 @@ class ApplyShapes(Operator):
             if hasattr(dev_props, prop):
                 setattr(dev_props, prop, 100 * reset[reset_key])
                              
-    def mute_chest_shapes(apply_target, category):
+    def mute_chest_shapes(obj, category):
         category_mute_mapping = {
             "Large": (True, True), 
             "Medium": (False, True), 
@@ -707,26 +616,25 @@ class ApplyShapes(Operator):
         mute_medium, mute_small = category_mute_mapping.get(category, (True, True))
 
         # Apply the mute states to the target
-        apply_target[get_chest_size_keys("Medium")].mute = mute_medium
-        apply_target[get_chest_size_keys("Small")].mute = mute_small
+        obj[get_chest_size_keys("Medium")].mute = mute_medium
+        obj[get_chest_size_keys("Small")].mute = mute_small
 
-    def mute_gen_shapes(apply_target, gen: str):
+    def mute_gen_shapes(obj, gen: str):
         gen_mute_mapping = {
             "Gen A": (True, True, True), 
             "Gen B": (False, True, True), 
             "Gen C": (True, False, True),   
             "Gen SFW": (True, True, False),   
         }
-
         # Gets category and its bools
         mute_b, mute_c, mute_sfw = gen_mute_mapping.get(gen, (True, True, True))
 
         # Apply the mute states to the target
-        apply_target["Gen B"].mute = mute_b
-        apply_target["Gen C"].mute = mute_c
-        apply_target["Gen SFW"].mute = mute_sfw
+        obj["Gen B"].mute = mute_b
+        obj["Gen C"].mute = mute_c
+        obj["Gen SFW"].mute = mute_sfw
 
-    def mute_leg_shapes(apply_target, size: str):
+    def mute_leg_shapes(obj, size: str):
         size_mute_mapping = {
             "Melon": (True, True), 
             "Skull": (False, True), 
@@ -737,14 +645,14 @@ class ApplyShapes(Operator):
         mute_skull, mute_mini = size_mute_mapping.get(size, (True, True))
 
         # Apply the mute states to the target
-        apply_target["Skull Crushers"].mute = mute_skull
-        apply_target["Mini"].mute = mute_mini
+        obj["Skull Crushers"].mute = mute_skull
+        obj["Mini"].mute = mute_mini
 
         if not mute_mini:
-            apply_target["Hip Dips (for YAB)"].mute = True
-            apply_target["Less Hip Dips (for Rue)"].mute = True
+            obj["Hip Dips (for YAB)"].mute = True
+            obj["Less Hip Dips (for Rue)"].mute = True
 
-    def mute_nail_shapes(apply_target, nails: str):
+    def mute_nail_shapes(obj, nails: str):
         nails_mute_mapping = {
             "Long": (True, True, True), 
             "Short": (False, True, True), 
@@ -756,22 +664,21 @@ class ApplyShapes(Operator):
         mute_short, mute_ballerina, mute_stabbies = nails_mute_mapping.get(nails, (True, True, True))
 
         # Apply the mute states to the target
-        apply_target["Short Nails"].mute = mute_short
-        apply_target["Ballerina"].mute = mute_ballerina
-        apply_target["Stabbies"].mute = mute_stabbies
+        obj["Short Nails"].mute = mute_short
+        obj["Ballerina"].mute = mute_ballerina
+        obj["Stabbies"].mute = mute_stabbies
     
-    def toggle_other(apply_target, key: str):
+    def toggle_other(obj, key: str):
         if key == "Rue Other":
             key = "Rue"
        
-        if apply_target[key].mute:
-            apply_target[key].mute = False
+        if obj[key].mute:
+            obj[key].mute = False
         else:
-            apply_target[key].mute = True
-
+            obj[key].mute = True
 
 class ApplyVisibility(Operator):
-    bl_idname = "ya.apply_visibility"
+    bl_idname = "yakit.apply_visibility"
     bl_label = ""
     bl_description = "Toggles the visibility of the collection"
     bl_options = {'UNDO'}
@@ -791,6 +698,9 @@ class ApplyVisibility(Operator):
                 self.chest_visibility(collection)
             case "Legs":
                 self.legs_visibility(collection)
+            case "Shape":
+                self.shape_visibility(collection)
+
         return {"FINISHED"}
     
     def chest_visibility(self, collection):
@@ -843,657 +753,27 @@ class ApplyVisibility(Operator):
             else:
                 collection["Hands"].exclude = True
 
-
-def check_triangulation():
-    not_triangulated = []
-
-    for obj in bpy.context.scene.objects:
-        if obj.visible_get(view_layer=bpy.context.view_layer) and obj.type == "MESH":
-            triangulated = False
-            for modifier in reversed(obj.modifiers):
-                if modifier.type == "TRIANGULATE" and modifier.show_viewport:
-                    triangulated = True
-                    break
-            if not triangulated:
-                not_triangulated.append(obj.name)
-    
-    if not_triangulated:
-        return False, not_triangulated
-    else:
-        return True, ""
-
-def force_yas():
-    devkit = bpy.context.scene.devkit_props
-    for obj in bpy.context.scene.objects:
-        if obj.visible_get(view_layer=bpy.context.view_layer) and obj.type == "MESH":
-            if obj.data.name == "Torso":
-                devkit.controller_yas_chest = True
-            if obj.data.name == "Waist":
-                devkit.controller_yas_legs = True
-            if obj.data.name == "Hands":
-                devkit.controller_yas_hands = True
-            if obj.data.name == "Feet":
-                devkit.controller_yas_feet = True
-
-def shape_key_keeper():
-    bpy.ops.object.select_all(action="DESELECT")
-    visible_obj = visible_meshobj()
-    mesh_modifiers = ["MIRROR", "SUBSURF", "MASK", "WELD"]
-    to_reset = []
-    to_delete = []
-    to_join = []
-    
-    for original_obj in visible_obj:
-        old_name = original_obj.name
-        split = old_name.split()
-        split[0] = "ShapeKey"
-        new_name = " ".join(split)
-        xiv_key = [key for key in original_obj.data.shape_keys.key_blocks if key.name.startswith("shp")]
-
-        if xiv_key:
-            original_obj.select_set(state=True)
-            bpy.context.view_layer.objects.active = original_obj
-
-            bpy.ops.object.duplicate()
-            original_obj.hide_set(state=True)
-            shapekey_obj = bpy.context.selected_objects[0]
-            shapekey_obj.name = new_name
-            to_reset.append(original_obj)
-            to_delete.append(shapekey_obj)
-
-        for key in xiv_key:
-            shapekey_obj.select_set(state=True)
-            bpy.context.view_layer.objects.active = shapekey_obj
-
-            bpy.ops.object.duplicate()
-            shapekey_dupe = bpy.context.selected_objects[0]
-            shapekey_dupe.data.shape_keys.key_blocks[key.name].value = 1.0
-            bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
-            shapekey_dupe.name = key.name
-
-            shapekey_dupe.select_set(state=True)
-            bpy.context.view_layer.objects.active = shapekey_dupe
-            for modifier in shapekey_dupe.modifiers:
-                if any(modifier.type in mesh_modifiers for m in mesh_modifiers):
-                    try:
-                        bpy.ops.object.modifier_apply(modifier=modifier.name)
-                    except:
-                        bpy.ops.object.modifier_remove(modifier=modifier.name)
-                elif modifier.type != "ARMATURE":
-                    bpy.ops.object.modifier_remove(modifier=modifier.name)
-            
-            to_join.append(shapekey_dupe)
-            bpy.ops.object.select_all(action="DESELECT")
-
-        if to_join:
-            shapekey_obj.select_set(state=True)
-            bpy.context.view_layer.objects.active = shapekey_obj
-            bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
-            for modifier in shapekey_obj.modifiers:
-                if modifier.type != "ARMATURE" and modifier.show_viewport:
-                    try:
-                        bpy.ops.object.modifier_apply(modifier=modifier.name)
-                    except:
-                        bpy.ops.object.modifier_remove(modifier=modifier.name)
-                elif modifier.type != "ARMATURE":
-                    bpy.ops.object.modifier_remove(modifier=modifier.name)
-            for dupe in to_join:
-                dupe.select_set(state=True)
-                bpy.ops.object.join_shapes()
-                bpy.data.objects.remove(dupe, do_unlink=True, do_id_user=True, do_ui_user=True)
-            to_join = []
-        bpy.ops.object.select_all(action="DESELECT")
-
-    return to_reset, to_delete
-
-def restore_pre_shape_key(to_reset, to_delete):
-    for obj in to_delete:
-        bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
-    
-    for obj in to_reset:
-        obj.hide_set(state=False)
-
-def ivcs_mune(visible_obj, yas=False):
-    for obj in visible_obj:
-        for group in obj.vertex_groups:
-            try:
-                if yas:
-                    if group.name == "j_mune_r":
-                        group.name = "iv_c_mune_r"
-                    if group.name == "j_mune_l":
-                        group.name = "iv_c_mune_l"
-                else:
-                    if group.name == "iv_c_mune_r":
-                            group.name = "j_mune_r"
-                    if group.name == "iv_c_mune_l":
-                        group.name = "j_mune_l"
-            except:
-                continue
-      
-    
-class SimpleExport(Operator):
-    bl_idname = "ya.simple_export"
-    bl_label = "Simple Export"
-    bl_description = "Exports single model based on visible objects"
-    bl_options = {'REGISTER'}
-
-    user_input: StringProperty(name="File Name", default="") # type: ignore
-
-    @classmethod
-    def poll(cls, context):
-        return context.mode == "OBJECT"
-    
-    def __init__(self):
-        self.props = bpy.context.scene.devkit_props
-        self.check_tris = self.props.check_tris
-        self.force_yas = self.props.force_yas
-        self.keep_shapekeys = self.props.keep_shapekeys
-        self.gltf = self.props.file_gltf 
-
-    def invoke(self, context, event):
-        if self.check_tris:
-            triangulated, obj = check_triangulation()
-            if not triangulated:
-                self.report({'ERROR'}, f"Not Triangulated: {', '.join(obj)}")
-                return {'CANCELLED'} 
-            
-        bpy.context.window_manager.invoke_props_dialog(self, confirm_text="Export")
-        return {'RUNNING_MODAL'}
-
-    def execute(self, context):
-        if self.force_yas:
-            force_yas()
-        
-        self.props.controller_uv_transfers = True
-
-        directory = context.scene.devkit_props.export_directory
-        export_path = os.path.join(directory, self.user_input)
-        export_settings = FileExport.get_export_settings(self.gltf)
-
-        obj = get_object_from_mesh("Controller")
-        yas = obj.modifiers["YAS Chest"].show_viewport
-        visible_obj = visible_meshobj()
-        ivcs_mune(visible_obj, yas)
-
-        if self.keep_shapekeys:
-            to_reset, to_delete = shape_key_keeper()
-        
-        if self.gltf:
-            bpy.ops.export_scene.gltf(filepath=export_path + ".gltf", **export_settings)
+    def shape_visibility(self, collection):
+        if collection["Resources"].children["Controller"].children["Shape"].exclude:
+            collection["Resources"].children["Controller"].children["Shape"].exclude = False
         else:
-            bpy.ops.export_scene.fbx(filepath=export_path + ".fbx", **export_settings)
+            collection["Resources"].children["Controller"].children["Shape"].exclude = True
 
-        if self.keep_shapekeys:
-            restore_pre_shape_key(to_reset, to_delete)
-
-        ivcs_mune(visible_obj)
-        self.props.controller_uv_transfers = False
-        return {'FINISHED'}
-    
-    def draw(self, context):
-        layout = self.layout
-        layout.prop(self, "user_input")
-
-class BatchQueue(Operator):
-    bl_idname = "ya.batch_queue"
+class ResetQueue(Operator):
+    bl_idname = "yakit.reset_queue"
     bl_label = "Export"
-    bl_description = "Exports your scene based on your selections"
-    bl_options = {'UNDO'}
+    bl_description = "Resets Export UI if it ran into an error"
 
-    ob_mesh_dict = {
-            "Chest": "Torso", 
-            "Legs": "Waist", 
-            "Hands": "Hands",
-            "Feet": "Feet"
-            }
-    
     @classmethod
     def poll(cls, context):
-        return context.mode == "OBJECT"
+        return hasattr(context.scene, "file_props")
 
-    def __init__(self):
-        props = bpy.context.scene.devkit_props
-        self.check_tris = props.check_tris
-        self.force_yas = props.force_yas
-        self.subfolder = props.create_subfolder
-        self.export_directory = Path(props.export_directory)
-        self.body_slot = props.export_body_slot
-        self.selected_directory = props.export_directory
-        self.size_options = self.get_size_options()
-
-        self.leg_sizes = {
-            "Melon": self.size_options["Melon"],
-            "Skull": self.size_options["Skull"], 
-            "Mini Legs": self.size_options["Mini Legs"]
-            }
-
-        self.queue = []
-        self.leg_queue = []
-        
     def execute(self, context):
-        props = bpy.context.scene.devkit_props
-        props.controller_uv_transfers = True
-        if self.check_tris:
-            triangulated, obj = check_triangulation()
-            if not triangulated:
-                self.report({'ERROR'}, f"Not Triangulated: {', '.join(obj)}")
-                return {'CANCELLED'} 
-        if self.force_yas:
-            force_yas()
+        bpy.context.scene.file_props.export_total = 0
+        return {'FINISHED'}
         
-        if self.subfolder:
-            Path.mkdir(self.export_directory / self.body_slot, exist_ok=True)
-        
-        if not os.path.exists(self.selected_directory):
-            self.report({'ERROR'}, "No directory selected for export!")
-            return {'CANCELLED'} 
-
-        if self.body_slot == "Chest & Legs":
-            self.actual_combinations = self.shape_combinations("Chest")
-            self.calculate_queue("Chest")
-            self.actual_combinations = self.shape_combinations("Legs")
-            self.calculate_queue("Legs")
-        else:
-            self.actual_combinations = self.shape_combinations(self.body_slot)
-            self.calculate_queue(self.body_slot)
-
-        if "Legs" in self.body_slot:
-            gen_options = len(self.actual_combinations.keys())
-        else:
-            gen_options = 0
-
-        if self.queue == []:
-            self.report({'ERROR'}, "No valid combinations!")
-            return {'CANCELLED'} 
-        
-        if self.body_slot == "Chest & Legs":
-            if self.leg_queue == []:
-                self.report({'ERROR'}, "No valid combinations!")
-                return {'CANCELLED'} 
-            
-        self.collection_state()
-        bpy.ops.ya.collection_manager(preset="Export")
-
-        if "Chest" in self.body_slot:
-            obj = get_object_from_mesh("Controller")
-            yas = obj.modifiers["YAS Chest"].show_viewport
-            visible_obj = visible_meshobj()
-            ivcs_mune(visible_obj, yas)
-
-        props.export_total = len(self.queue)
-        BatchQueue.process_queue(context, self.queue, self.leg_queue, self.body_slot)
-        return {'RUNNING_MODAL'}
-    
-    # The following functions is executed to establish the queue and valid options 
-    # before handing all variables over to queue processing
-
-    def collection_state(self):
-        collection_state = bpy.context.scene.devkit_props.collection_state
-        collection_state.clear()
-        collections = []
-        match self.body_slot:
-            case "Chest":
-                collections = ["Chest"]
-                if self.size_options["Piercings"]:
-                    collections.append("Nipple Piercings")
-
-            case "Legs":
-                collections = ["Legs"]
-                if self.size_options["Pubes"]:
-                    collections.append("Pubes")
-
-            case "Chest & Legs":
-                collections = ["Chest", "Legs"]
-                if self.size_options["Piercings"]:
-                    collections.append("Nipple Piercings")
-                if self.size_options["Pubes"]:
-                    collections.append("Pubes")
-
-            case "Hands":
-                collections = ["Hands"]
-
-            case "Feet":
-                collections = ["Feet"]
-
-        for name in collections:
-            state = collection_state.add()
-            state.name = name
-
-    def get_size_options(self):
-        options = {}
-        prop = bpy.context.scene.devkit_props
-
-        for shape, (name, slot, shape_category, description, body, key) in ALL_SHAPES.items():
-            slot_lower = slot.lower().replace("/", " ")
-            name_lower = name.lower().replace(" ", "_")
-
-            prop_name = f"export_{name_lower}_{slot_lower}_bool"
-
-            if hasattr(prop, prop_name):
-                options[shape] = getattr(prop, prop_name)
-
-        return options
-
-    def calculate_queue(self, body_slot):
-        mesh = self.ob_mesh_dict[body_slot]
-        target = get_object_from_mesh(mesh).data.shape_keys.key_blocks
-
-        leg_sizes = [key for key in self.leg_sizes.keys() if self.leg_sizes[key]]
-
-        if body_slot != "Legs":
-            for size, options_groups in self.actual_combinations.items(): 
-                for options in options_groups:
-                    name = BatchQueue.name_generator(options, size, "", 0, body_slot)
-                    self.queue.append((name, options, size, "", target))
-        else:
-            # Legs need different handling due to genitalia combos     
-            for size in leg_sizes:
-                gen_options = len(self.actual_combinations.keys())
-                for gen, options_groups in self.actual_combinations.items(): 
-                    for options in options_groups:
-                        if size == "Mini Legs" and any("Hip Dips" in option for option in options):
-                            continue
-                        name = BatchQueue.name_generator(options, size, gen, gen_options, body_slot) 
-                        
-                        if self.body_slot == "Chest & Legs":
-                            self.leg_queue.append((name, options, size, gen, target))
-                        else:
-                            self.queue.append((name, options, size, gen, target))
-        
-    def shape_combinations(self, body_slot):
-        possible_parts  = [
-            "Rue Legs", "Small Butt", "Soft Butt", "Hip Dips",
-            "Buff", "Rue", 
-            "Rue Hands", "YAB Hands", 
-            "Clawsies"
-            ]
-        actual_parts = []
-        all_combinations = set()
-        actual_combinations = {}
-
-        
-        #Excludes possible parts based on which body slot they belong to
-        for shape, (name, slot, category, description, body, key) in ALL_SHAPES.items():
-            if any(shape in possible_parts for parts in possible_parts) and body_slot == slot and self.size_options[shape]:
-                actual_parts.append(shape)  
-
-        for r in range(0, len(actual_parts) + 1):
-            if body_slot == "Hands":
-                r = 1
-            all_combinations.update(combinations(actual_parts, r))
-
-        all_combinations = tuple(all_combinations)  
-
-        for shape, (name, slot, category, description, body, key) in ALL_SHAPES.items():
-            if body_slot == "Legs":
-                if self.size_options[shape] and category == "Vagina":
-                    actual_combinations[shape] = all_combinations
-
-            elif body_slot == "Chest" and slot == "Chest":
-                if self.size_options[shape] and category != "":
-                    actual_combinations[shape] = all_combinations
-
-            elif body_slot == "Hands":
-                if self.size_options[shape] and category == "Nails":
-                    actual_combinations[shape] = all_combinations
-
-            elif body_slot == "Feet":
-                if self.size_options[shape] and category == "Feet":
-                    actual_combinations[shape] = all_combinations
-
-        return actual_combinations
-                       
-    def name_generator(options, size, gen, gen_options, body_slot):
-        yiggle = bpy.context.scene.devkit_props.force_yas
-
-        if body_slot == "Chest & Legs":
-            body_slot = "Chest"
-        if yiggle:
-            file_names = ["Yiggle"]
-        else:
-            file_names = []
-        
-        gen_name = None
-
-        #Loops over the options and applies the shapes name to file_names
-        for shape, (name, slot, category, description, body, key) in ALL_SHAPES.items():
-            if any(shape in options for option in options) and not shape.startswith("Gen") and name != "YAB":
-                if name == "Hip Dips":
-                    name = "Alt Hip" 
-                file_names.append(name)
-        
-        # Checks if any Genitalia shapes and applies the shortened name 
-        # Ignores gen_name if only one option is selected
-        if gen != None and gen.startswith("Gen") and gen_options > 1:
-            gen_name = gen.replace("Gen ","")       
-        
-        # Tweaks name output for the sizes
-        size_name = size.replace(" Legs", "").replace("YAB ", "")
-        if size == "Skull":
-            size_name = "Skull Crushers"
-        if size == "Melon":
-            size_name = "Watermelon Crushers"
-        if size == "Short" or size == "Long":
-            size_name = size + " Nails"
-
-        file_names.append(size_name)
-
-        if body_slot == "Feet":
-            file_names = reversed(file_names)
-
-        if gen_name != None:
-            file_names.append(gen_name)
-        
-        return " - ".join(list(file_names))
-    
-    # These functions are responsible for processing the queue.
-    # Export queue is running on a timer interval until the queue is empty.
-
-    def process_queue(context, queue, leg_queue, body_slot):
-        global is_exporting
-        is_exporting = False
-        start_time = time.time()
-
-        # randomising the list gives a much better time estimate
-        random.shuffle(queue)
-        BatchQueue.progress_tracker(queue)
-        callback = partial(BatchQueue.export_queue, context, queue, leg_queue, body_slot, start_time)
-       
-        bpy.app.timers.register(callback, first_interval=0.5) 
-        
-    def export_queue(context, queue, leg_queue, body_slot, start_time):
-        props = context.scene.devkit_props
-        collection = context.view_layer.layer_collection.children
-        global is_exporting
-
-        if is_exporting:
-            return 0.1
-        is_exporting = True
-
-        main_name, options, size, gen, target = queue.pop()
-       
-        BatchQueue.reset_model_state(body_slot, target)
-        BatchQueue.apply_model_state(options, size, gen, body_slot, target)
-        props.export_file_name = main_name
-
-        if body_slot == "Hands":
-
-            if size == "Straight" or size == "Curved":
-                collection["Hands"].children["Clawsies"].exclude = False
-                collection["Hands"].children["Nails"].exclude = True
-                collection["Hands"].children["Nails"].exclude = True
-    
-            else:
-                collection["Hands"].children["Clawsies"].exclude = True
-                collection["Hands"].children["Nails"].exclude = False
-                collection["Hands"].children["Nails"].children["Practical Uses"].exclude = False
-        
-        if body_slot == "Feet":
-
-            if "Clawsies" in options:
-                collection["Feet"].children["Toe Clawsies"].exclude = False
-                collection["Feet"].children["Toenails"].exclude = True
-                
-    
-            else:
-                collection["Feet"].children["Toe Clawsies"].exclude = True
-                collection["Feet"].children["Toenails"].exclude = False
-        
-        if body_slot == "Chest & Legs":
-            exported = []
-            for leg_task in leg_queue:
-                leg_name, options, size, gen, leg_target = leg_task
-                # rue_match stops non-rue tops to be used with rue legs and vice versa
-                if BatchQueue.check_rue_match(options, main_name):
-                    body_slot = "Legs"
-                    
-                    BatchQueue.reset_model_state(body_slot, leg_target)
-                    BatchQueue.apply_model_state(options, size, gen, body_slot, leg_target)
-
-                    combined_name = main_name + " - " + leg_name
-                    final_name = BatchQueue.clean_file_name(combined_name)
-                    if props.keep_shapekeys:
-                        to_reset, to_delete = shape_key_keeper()
-                    if not any(final_name in name for name in exported):
-                        exported.append(final_name)
-                        bpy.ops.ya.file_export(file_name=final_name, body_slot="Chest & Legs")
-        
-        else:
-            if props.keep_shapekeys:
-                to_reset, to_delete = shape_key_keeper()
-            bpy.ops.ya.file_export(file_name=main_name, body_slot=body_slot)
-
-        is_exporting = False
-
-        if queue:
-            end_time = time.time()
-            duration = end_time - start_time
-            props.export_time = duration
-            BatchQueue.progress_tracker(queue)
-            if props.keep_shapekeys:
-                restore_pre_shape_key(to_reset, to_delete)
-            return 0.1
-        else:
-            if props.keep_shapekeys:
-                restore_pre_shape_key(to_reset, to_delete)
-            if body_slot == "Chest":
-                visible_obj = visible_meshobj()
-                ivcs_mune(visible_obj)
-            bpy.ops.ya.collection_manager(preset="Restore")
-            props.controller_uv_transfers = False
-            BatchQueue.progress_reset(props)
-            return None
-
-    # These functions are responsible for applying the correct model state and appropriate file name.
-    # They are called from the export_queue function.
-
-    def check_rue_match (options, file_name):
-        '''This function checks the name of the leg export vs the chest export and makes sure only 
-        rue tops and bottoms are combined'''
-        if "Rue" in file_name:
-            if any("Rue Legs" in option for option in options):
-                return True
-            else:
-                return False
-        elif any("Rue Legs" in option for option in options):
-            return False
-    
-        return True
-
-    def clean_file_name (file_name:str):
-        parts = file_name.split(" - ")
-        rue_match = False
-        new_parts = []
-
-        for part in parts:
-            if part == "Rue":
-                if rue_match:
-                    continue
-                rue_match = True
-            new_parts.append(part)
-            
-        
-        file_name = " - ".join(new_parts)
-
-        return file_name
-
-        # first = file_name.find("Rue - ")
-
-        # second = file_name.find("Rue - ", first + len("Rue - "))
-
-        # if second == -1:
-        #     return file_name
-            
-        
-        # return file_name[:second] + file_name[second + len("Rue - "):]
-
-    def apply_model_state(options, size, gen, body_slot, ob):
-        if body_slot == "Chest & Legs":
-            body_slot = "Chest"
-
-        for shape, (name, slot, category, description, body, key) in ALL_SHAPES.items():
-
-            if shape == size and key != "":
-                ob[key].mute = False
-
-            if any(shape in options for option in options):
-                if key != "":
-                    ob[key].mute = False
-
-        # Adds the shape value presets alongside size toggles
-        if body_slot == "Chest":
-            keys_to_filter = ["Squeeze", "Squish", "Push-Up", "Nip Nops"]
-            preset = get_shape_presets(size)
-            filtered_preset = {}
-           
-
-            for key in preset.keys():
-                if not any(key.endswith(sub) for sub in keys_to_filter):
-                    filtered_preset[key] = preset[key]
-
-            category = ALL_SHAPES[size][2]
-            ApplyShapes.mute_chest_shapes(ob, category)
-            ApplyShapes.apply_shape_values("torso", category, filtered_preset)
-            bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
-            bpy.context.view_layer.update()
-                
-        
-        if gen != None and gen.startswith("Gen") and gen != "Gen A":
-            ob[gen].mute = False
-
-    def reset_model_state(body_slot, ob):
-        if body_slot == "Chest & Legs":
-            body_slot = "Chest"
-
-        reset_shape_keys = []
-
-        for shape, (name, slot, shape_category, description, body, key) in ALL_SHAPES.items():
-            if key != "" and slot == body_slot:
-                if shape == "Hip Dips":
-                    reset_shape_keys.append("Hip Dips (for YAB)")
-                    reset_shape_keys.append("Less Hip Dips (for Rue)")
-                else:
-                    reset_shape_keys.append(key)
-
-        for key in reset_shape_keys:   
-            ob[key].mute = True
-
-    def progress_tracker(queue):
-        props = bpy.context.scene.devkit_props
-        props.export_progress = (props.export_total - len(queue)) / props.export_total
-        props.export_step = (props.export_total - len(queue)) 
-        props.export_file_name = queue[-1][0]
-
-    def progress_reset(props):
-        props.export_total = 0
-        props.export_progress = 0
-        props.export_step = 0
-        props.export_time = 0
-        props.export_file_name = ""
-
-
 class FileExport(Operator):
-    bl_idname = "ya.file_export"
+    bl_idname = "yakit.file_export"
     bl_label = "Export"
     bl_description = ""
 
@@ -1505,9 +785,9 @@ class FileExport(Operator):
             return {'FINISHED'}
 
     def export_template(context, file_name, body_slot):
-        gltf = context.scene.devkit_props.file_gltf
-        subfolder = bpy.context.scene.devkit_props.create_subfolder
-        selected_directory = Path(context.scene.devkit_props.export_directory)
+        gltf = context.scene.file_props.file_gltf
+        subfolder = bpy.context.scene.file_props.create_subfolder
+        selected_directory = Path(context.scene.file_props.export_directory)
 
         if subfolder:
             export_path = str(selected_directory / body_slot / file_name)
@@ -1553,146 +833,21 @@ class FileExport(Operator):
                 "use_visible": True,
             }
 
-
-class SimpleImport(Operator):
-    bl_idname = "ya.simple_import"
-    bl_label = "Open Import Window"
-    bl_description = "Import a file in the selected format"
-    bl_options = {'UNDO'}
-
-    preset: StringProperty() # type: ignore
-
-    @classmethod
-    def poll(cls, context):
-        return context.mode == "OBJECT"
-    
-    def execute(self, context):
-        gltf = context.scene.devkit_props.file_gltf
-        if gltf:
-            bpy.ops.import_scene.gltf('INVOKE_DEFAULT')
-        else:
-            bpy.ops.import_scene.fbx('INVOKE_DEFAULT', ignore_leaf_bones=True)
-
-        return {"FINISHED"}
-    
-
-class SimpleCleanUp(Operator):
-    bl_idname = "ya.simple_cleanup"
-    bl_label = "Open Import Window"
-    bl_description = "Cleanup the selected files"
-    bl_options = {'UNDO'}
-
-    preset: StringProperty() # type: ignore
-
-    @classmethod
-    def poll(cls, context):
-        return context.mode == "OBJECT"
-    
-    def execute(self, context):
-        props = context.scene.devkit_props
-        if props.fix_parent:
-            self.fix_parent()
-        if props.update_material:
-            self.update_material()
-        if props.rename_import != "":
-            self.rename_import()
-        
-        return {"FINISHED"}
-
-    def update_material(self):
-        selected = bpy.context.selected_objects
-        for obj in selected:
-            bpy.context.view_layer.objects.active = obj
-            if obj.type == "MESH":
-                material = obj.active_material
-                material.surface_render_method = "DITHERED"
-                material.use_backface_culling = True
-
-    def fix_parent(self):
-        selected = bpy.context.selected_objects
-        for obj in selected:
-            bpy.context.view_layer.objects.active = obj
-            old_transform = obj.matrix_world.copy()
-            obj.parent = bpy.data.objects["Skeleton"]
-            obj.matrix_world = old_transform
-            bpy.ops.object.transform_apply(location=True, scale=True, rotation=True)
-            if obj.type != "MESH":
-                bpy.data.objects.remove(obj, do_unlink=True, do_id_user=True, do_ui_user=True)
-
-    def rename_import(self):
-        selected = bpy.context.selected_objects
-        for obj  in selected:
-            bpy.context.view_layer.objects.active = obj
-            if obj.type == "MESH":
-                split = obj.name.split()
-                split[0] = bpy.context.scene.devkit_props.rename_import
-                obj.name = " ".join(split)
-
-
-class DirSelector(Operator):
-    bl_idname = "ya.dir_selector"
-    bl_label = "Select Folder"
-    bl_description = "Select file or directory. Hold Alt to open the folder"
-    
-    directory: StringProperty() # type: ignore
-    category: StringProperty() # type: ignore
-
-    def invoke(self, context, event):
-        actual_dir = getattr(context.scene.devkit_props, f"{self.category}_directory", "")     
-
-        if event.alt and event.type == "LEFTMOUSE" and os.path.isdir(actual_dir):
-            os.startfile(actual_dir)
-        elif event.type == "LEFTMOUSE":
-            context.window_manager.fileselect_add(self)
-
-
-        else:
-             self.report({"ERROR"}, "Not a directory!")
-    
-        return {"RUNNING_MODAL"}
-    
-
-    def execute(self, context):
-        actual_dir_prop = f"{self.category}_directory"
-        display_dir_prop = f"{self.category}_display_directory"
-        selected_file = Path(self.directory)  
-
-        if selected_file.is_dir():
-            setattr(context.scene.devkit_props, actual_dir_prop, str(selected_file))
-            setattr(context.scene.devkit_props, display_dir_prop, str(Path(*selected_file.parts[-3:])))
-            self.report({"INFO"}, f"Directory selected: {selected_file}")
-        
-        else:
-            self.report({"ERROR"}, "Not a valid path!")
-        
-        return {'FINISHED'}
-    
-
-class BodyPartSlot(Operator):
-    bl_idname = "ya.set_body_part"
-    bl_label = "Select body slot to export."
-    bl_description = "The icons almost make sense"
-
-    body_part: StringProperty() # type: ignore
-
-    def execute(self, context):
-        # Update the export_body_part with the selected body part
-        context.scene.devkit_props.export_body_slot = self.body_part
-        return {'FINISHED'}
-    
-    
-class UISelector(Operator):
-    bl_idname = "ya.set_ui"
-    bl_label = "Choose your main menu."
-    bl_description = "Gives different overviews of the devkit"
+class PanelCategory(Operator):
+    bl_idname = "yakit.set_ui"
+    bl_label = "Select the menu."
+    bl_description = "Changes the panel menu"
 
     overview: StringProperty() # type: ignore
+    panel: StringProperty() # type: ignore
 
     def execute(self, context):
-        # Update the export_body_part with the selected body part
-        context.scene.devkit_props.overview_ui = self.overview
+        match self.panel:
+            case "overview":
+                context.scene.devkit_props.overview_ui = self.overview
+            case "file":
+                context.scene.devkit_props.file_man_ui = self.overview
         return {'FINISHED'}
-
 
 class Overview(Panel):
     bl_idname = "VIEW3D_PT_YA_Overview"
@@ -1708,29 +863,29 @@ class Overview(Panel):
         legs = get_object_from_mesh("Waist")
         hands = get_object_from_mesh("Hands")
         feet = get_object_from_mesh("Feet")
-        controller = get_object_from_mesh("Controller")
 
-        ob = self.collection_context(context)
-        key = ob.data.shape_keys
+        obj = self.collection_context(context)
+        key = obj.data.shape_keys
         layout = self.layout
-        label_name = ob.data.name
+        label_name = obj.name
         scene = context.scene
         section_prop = scene.devkit_props
+
+        options ={
+            "Body": "OUTLINER_OB_ARMATURE",
+            "Shape Keys": "MESH_DATA",
+            "Settings": "SETTINGS",
+            "Info": "INFO",
+            }
 
         box = layout.box()
         row = box.row(align=True)
         
-        row.label(text=f"Menu: {section_prop.overview_ui}")
+        row.label(icon=options[section_prop.overview_ui])
+        row.label(text=f"  {section_prop.overview_ui}")
         button_row = row.row(align=True)
-
-        options =[
-            ("Body", "OUTLINER_OB_ARMATURE"),
-            ("Shape Keys", "MESH_DATA"),
-            ("Settings", "SETTINGS"),
-            ("Info", "INFO"),
-            ]
         
-        self.ui_category_buttons(button_row, section_prop, options)
+        self.ui_category_buttons(button_row, section_prop, "overview_ui", options, "overview")
         
         layout.separator(factor=1, type="LINE")
 
@@ -1749,7 +904,7 @@ class Overview(Panel):
                 "", 
                 key, 
                 "key_blocks", 
-                ob, 
+                obj, 
                 "active_shape_key_index", 
                 rows=10)
         
@@ -1772,7 +927,7 @@ class Overview(Panel):
             button_row = row.row(align=True)
             if not section_prop.shape_mq_other_bool:
                 icon = "HIDE_ON" if chest_col else "HIDE_OFF"
-                chest_op = button_row.operator("ya.apply_visibility", text="", icon=icon, depress=not chest_col)
+                chest_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not chest_col)
                 chest_op.target = "Chest"
                 chest_op.key = ""
             button_row.prop(section_prop, "shape_mq_chest_bool", text="", icon="ARMATURE_DATA")
@@ -1796,7 +951,7 @@ class Overview(Panel):
             button_row = row.row(align=True)
             if not section_prop.shape_mq_other_bool:
                 icon = "HIDE_ON" if leg_col else "HIDE_OFF"
-                leg_op = button_row.operator("ya.apply_visibility", text="", icon=icon, depress=not leg_col)
+                leg_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not leg_col)
                 leg_op.target = "Legs"
                 leg_op.key = ""
             button_row.prop(section_prop, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
@@ -1821,7 +976,7 @@ class Overview(Panel):
                 self.other_shapes(layout, section_prop, mq, hands, feet)
 
         # YAS MENU
-        if section_prop.overview_ui == "Body" or section_prop.overview_ui == "Shape Keys":
+        if (section_prop.overview_ui == "Body" or section_prop.overview_ui == "Shape Keys") and hasattr(section_prop, "controller_yas_chest"):
             button = section_prop.button_yas_expand                          
 
             box = layout.box()
@@ -1848,6 +1003,7 @@ class Overview(Panel):
             row = layout.row(align=True)
             row.alignment = "CENTER"
             col = row.column(align=True)
+            col.operator("yakit.reset_queue", text=("Reset Export"))
             col.operator("outliner.orphans_purge", text="Delete Unused Data")
             col.operator("script.reload", text="Reload Scripts")
         
@@ -1883,8 +1039,7 @@ class Overview(Panel):
             row = col.row(align=True)
             row.alignment = "CENTER"
             row.label(text=f"Devkit Script Ver: {DEVKIT_VER[0]}.{DEVKIT_VER[1]}.{DEVKIT_VER[2]}")
-                 
-          
+                       
     def collection_context(self, context):
         # Links mesh name to the standard collections)
         body_part_collections = {
@@ -1895,21 +1050,21 @@ class Overview(Panel):
             }
 
         # Get the active object
-        active_ob = bpy.context.active_object
+        active_obj = bpy.context.active_object
 
-        if active_ob and has_shape_keys(active_ob):
+        if active_obj and has_shape_keys(active_obj):
             if not context.scene.devkit_props.button_dynamic_view:
-                return active_ob
+                return active_obj
             else:
-                active_collection = active_ob.users_collection
+                active_collection = active_obj.users_collection
                 for body_part, collections in body_part_collections.items():
                     if any(bpy.data.collections[coll_name] in active_collection for coll_name in collections):
                         return get_object_from_mesh(body_part) 
-                return active_ob
+                return active_obj
         else:
             return get_object_from_mesh("Mannequin")
 
-    def chest_shapes(self, layout, section_prop, mq, torso):
+    def chest_shapes(self, layout:UILayout, section_prop, mq:Object, torso:Object):
         layout.separator(factor=0.1)  
         if section_prop.shape_mq_chest_bool:
             target = mq
@@ -1918,8 +1073,8 @@ class Overview(Panel):
             target = torso
             key_target = "torso"
 
-        medium_mute = target.data.shape_keys.key_blocks["MEDIUM ----------------------------"].mute
-        small_mute = target.data.shape_keys.key_blocks["SMALL ------------------------------"].mute
+        medium_mute = target.data.shape_keys.key_blocks["MEDIUM"].mute
+        small_mute = target.data.shape_keys.key_blocks["SMALL"].mute
         buff_mute = target.data.shape_keys.key_blocks["Buff"].mute
         rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
         
@@ -1930,26 +1085,26 @@ class Overview(Panel):
         rue_depress = True if not rue_mute else False
         
         row = layout.row(align=True)
-        operator = row.operator("ya.apply_shapes", text= "Large", depress=large_depress)
+        operator = row.operator("yakit.apply_shapes", text= "Large", depress=large_depress)
         operator.key = "Large"
         operator.target = "Torso"
         operator.preset = "chest_category"
-        operator = row.operator("ya.apply_shapes", text= "Medium", depress=medium_depress)
+        operator = row.operator("yakit.apply_shapes", text= "Medium", depress=medium_depress)
         operator.key = "Medium"
         operator.target = "Torso"
         operator.preset = "chest_category"
-        operator = row.operator("ya.apply_shapes", text= "Small", depress=small_depress)
+        operator = row.operator("yakit.apply_shapes", text= "Small", depress=small_depress)
         operator.key = "Small"
         operator.target = "Torso"
         operator.preset = "chest_category"
 
         row = layout.row(align=True)
-        operator = row.operator("ya.apply_shapes", text= "Buff", depress=buff_depress)
+        operator = row.operator("yakit.apply_shapes", text= "Buff", depress=buff_depress)
         operator.key = "Buff"
         operator.target = "Torso"
         operator.preset = "other"
 
-        operator = row.operator("ya.apply_shapes", text= "Rue", depress=rue_depress)
+        operator = row.operator("yakit.apply_shapes", text= "Rue", depress=rue_depress)
         operator.key = "Rue"
         operator.target = "Torso"
         operator.preset = "other"
@@ -2013,11 +1168,11 @@ class Overview(Panel):
         col2.prop(section_prop, "chest_shape_enum")
 
         col3 = split.column(align=True)
-        col3.operator("ya.apply_shapes", text= "Apply").preset = "shapes"
+        col3.operator("yakit.apply_shapes", text= "Apply").preset = "shapes"
 
         layout.separator(factor=0.1)
 
-    def leg_shapes(self, layout, section_prop, mq, legs):
+    def leg_shapes(self, layout:UILayout, section_prop, mq:Object, legs:Object):
         layout.separator(factor=0.1)
         if section_prop.shape_mq_legs_bool:
             target = mq
@@ -2058,22 +1213,22 @@ class Overview(Panel):
         split.label(text="Genitalia:")
         button_row = split.row(align=True)
 
-        operator = button_row.operator("ya.apply_shapes", text= "A", depress=gena_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "A", depress=gena_depress)
         operator.key = "Gen A"
         operator.target = "Legs"
         operator.preset = "gen"
 
-        operator = button_row.operator("ya.apply_shapes", text= "B", depress=genb_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "B", depress=genb_depress)
         operator.key = "Gen B"
         operator.target = "Legs"
         operator.preset = "gen"
 
-        operator = button_row.operator("ya.apply_shapes", text= "C", depress=genc_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "C", depress=genc_depress)
         operator.key = "Gen C"
         operator.target = "Legs"
         operator.preset = "gen"
 
-        operator = button_row.operator("ya.apply_shapes", text= "SFW", depress=gensfw_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "SFW", depress=gensfw_depress)
         operator.key = "Gen SFW"
         operator.target = "Legs"
         operator.preset = "gen"
@@ -2083,17 +1238,17 @@ class Overview(Panel):
         split.alignment = "RIGHT"
         split.label(text="Leg sizes:")
         button_row = split.row(align=True)
-        operator = button_row.operator("ya.apply_shapes", text= "Melon", depress=melon_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Melon", depress=melon_depress)
         operator.key = "Melon"
         operator.target = "Legs"
         operator.preset = "leg_size"
 
-        operator = button_row.operator("ya.apply_shapes", text= "Skull", depress=skull_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Skull", depress=skull_depress)
         operator.key = "Skull"
         operator.target = "Legs"
         operator.preset = "leg_size"
 
-        operator = button_row.operator("ya.apply_shapes", text= "Mini", depress=mini_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Mini", depress=mini_depress)
         operator.key = "Mini"
         operator.target = "Legs"
         operator.preset = "leg_size"
@@ -2103,30 +1258,30 @@ class Overview(Panel):
         split.alignment = "RIGHT"
         split.label(text="Butt options:")
         button_row = split.row(align=True)
-        operator = button_row.operator("ya.apply_shapes", text= "Small", depress=small_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Small", depress=small_depress)
         operator.key = "Small Butt"
         operator.target = "Legs"
         operator.preset = "other"
-        operator = button_row.operator("ya.apply_shapes", text= "Soft", depress=soft_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Soft", depress=soft_depress)
         operator.key = "Soft Butt"
         operator.target = "Legs"
         operator.preset = "other"
 
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
-        operator = split.operator("ya.apply_shapes", text= "Alt Hips", depress=hip_depress)
+        operator = split.operator("yakit.apply_shapes", text= "Alt Hips", depress=hip_depress)
         operator.key = "Alt Hips"
         operator.target = "Legs"
         operator.preset = "other"
         button_row = split.row(align=True)
-        operator = button_row.operator("ya.apply_shapes", text= "Rue", depress=rue_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Rue", depress=rue_depress)
         operator.key = "Rue"
         operator.target = "Legs"
         operator.preset = "other"
         
         layout.separator(factor=0.1)
 
-    def yas_menu(self, layout, section_prop):
+    def yas_menu(self, layout:UILayout, section_prop):
         layout.separator(factor=0.1)
         row = layout.row(align=True)
         icon = 'CHECKMARK' if section_prop.controller_yas_chest else 'PANEL_CLOSE'
@@ -2155,7 +1310,7 @@ class Overview(Panel):
 
         layout.separator(factor=0.1)
 
-    def other_shapes(self, layout, section_prop, mq, hands, feet):
+    def other_shapes(self, layout:UILayout, section_prop, mq:Object, hands:Object, feet:Object):
         if section_prop.shape_mq_other_bool:
                         target = mq
                         target_f = mq
@@ -2185,7 +1340,7 @@ class Overview(Panel):
         feet_col = bpy.context.view_layer.layer_collection.children["Feet"].exclude
         nails_col = bpy.context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude
         toenails_col = bpy.context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude
-
+        
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
@@ -2193,11 +1348,11 @@ class Overview(Panel):
         button_row = split.row(align=True)
         if not section_prop.shape_mq_other_bool:
             icon = "HIDE_ON" if hands_col else "HIDE_OFF"
-            hands_op = button_row.operator("ya.apply_visibility", text="", icon=icon, depress=not hands_col)
+            hands_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not hands_col)
             hands_op.target = "Hands"
             hands_op.key = ""
 
-        operator = button_row.operator("ya.apply_shapes", text= "Rue", depress=rue_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Rue", depress=rue_depress)
         operator.key = "Rue Other"
         operator.target = "Hands"
         operator.preset = "other"
@@ -2209,26 +1364,26 @@ class Overview(Panel):
         button_row = split.row(align=True)
         if not section_prop.shape_mq_other_bool:
             icon = "HIDE_ON" if nails_col else "HIDE_OFF"
-            operator = button_row.operator("ya.apply_visibility", text="", icon=icon, depress=not nails_col)
+            operator = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not nails_col)
             operator.key = "Nails"
             operator.target = "Hands"
 
-        operator = button_row.operator("ya.apply_shapes", text= "Long", depress=long_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Long", depress=long_depress)
         operator.key = "Long"
         operator.target = "Hands"
         operator.preset = "nails"
         
-        operator = button_row.operator("ya.apply_shapes", text= "Short", depress=short_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Short", depress=short_depress)
         operator.key = "Short"
         operator.target = "Hands"
         operator.preset = "nails"
 
-        operator = button_row.operator("ya.apply_shapes", text= "Ballerina", depress=ballerina_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Ballerina", depress=ballerina_depress)
         operator.key = "Ballerina"
         operator.target = "Hands"
         operator.preset = "nails"
 
-        operator = button_row.operator("ya.apply_shapes", text= "Stabbies", depress=stabbies_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Stabbies", depress=stabbies_depress)
         operator.key = "Stabbies"
         operator.target = "Hands"
         operator.preset = "nails"
@@ -2240,14 +1395,14 @@ class Overview(Panel):
             split.label(text="Clawsies:")
             button_row = split.row(align=True)
             icon = "HIDE_ON" if clawsies_col else "HIDE_OFF"
-            operator = button_row.operator("ya.apply_visibility", text="", icon=icon, depress=not clawsies_col)
+            operator = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not clawsies_col)
             operator.key = "Clawsies"
             operator.target = "Hands"
-            operator = button_row.operator("ya.apply_shapes", text= "Straight", depress=clawsies_depress)
+            operator = button_row.operator("yakit.apply_shapes", text= "Straight", depress=clawsies_depress)
             operator.key = "Curved"
             operator.target = "Hands"
             operator.preset = "other"
-            operator = button_row.operator("ya.apply_shapes", text= "Curved", depress=not clawsies_depress)
+            operator = button_row.operator("yakit.apply_shapes", text= "Curved", depress=not clawsies_depress)
             operator.key = "Curved"
             operator.target = "Hands"
             operator.preset = "other"
@@ -2261,10 +1416,10 @@ class Overview(Panel):
         button_row = split.row(align=True)
         if not section_prop.shape_mq_other_bool:
             icon = "HIDE_ON" if feet_col else "HIDE_OFF"
-            feet_op = button_row.operator("ya.apply_visibility", text="", icon=icon, depress=not feet_col)
+            feet_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not feet_col)
             feet_op.target = "Feet"
             feet_op.key = ""
-        operator = button_row.operator("ya.apply_shapes", text= "Rue", depress=rue_f_depress)
+        operator = button_row.operator("yakit.apply_shapes", text= "Rue", depress=rue_f_depress)
         operator.key = "Rue Other"
         operator.target = "Feet"
         operator.preset = "other"
@@ -2277,11 +1432,11 @@ class Overview(Panel):
             split.alignment = 'RIGHT'  # Align label to the right
             split.label(text="Nails/Claws:")
             icon = "HIDE_ON" if toenails_col else "HIDE_OFF"
-            nail_op = split.operator("ya.apply_visibility", text="", icon=icon, depress=not toenails_col)
+            nail_op = split.operator("yakit.apply_visibility", text="", icon=icon, depress=not toenails_col)
             nail_op.key = "Nails"
             nail_op.target = "Feet"
             icon = "HIDE_ON" if toeclawsies_col else "HIDE_OFF"
-            claw_op = split.operator("ya.apply_visibility", text="", icon=icon, depress=not toeclawsies_col)
+            claw_op = split.operator("yakit.apply_visibility", text="", icon=icon, depress=not toeclawsies_col)
             claw_op.key = "Clawsies"
             claw_op.target = "Feet"
 
@@ -2300,374 +1455,16 @@ class Overview(Panel):
         col2.prop(section_prop, f"key_miniheels_{key_target}")
 
         layout.separator(factor=0.1)
-
-    def ui_category_buttons(self, layout, section_prop, options):
+   
+    def ui_category_buttons(self, layout:UILayout, section_prop, prop, options, panel:str):
         row = layout
+        ui_selector = getattr(section_prop, prop)
 
-        for slot, icon in options:
-            depress = True if section_prop.overview_ui == slot else False
-            row.operator("ya.set_ui", text="", icon=icon, depress=depress).overview = slot
-
-
-class OutfitStudio(Panel):
-    bl_idname = "VIEW3D_PT_YA_OutfitStudio"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Devkit"
-    bl_label = "Outfit Studio"
-    bl_order = 1
-
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row(align=True)
-
-
-class FileManager(Panel):
-    bl_idname = "VIEW3D_PT_YA_FileManager"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Devkit"
-    bl_label = "File Manager"
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_order = 3
-
-    def draw(self, context):
-        layout = self.layout
-        section_prop = context.scene.devkit_props
-
-        # EXPORT
-        button = section_prop.button_export_expand
-        box = self.dropdown_header(button, section_prop, "button_export_expand", "Export", "EXPORT")
-        if button:
-            self.draw_export(context, layout, section_prop)
-
-        # IMPORT
-        button = section_prop.button_import_expand
-        box = self.dropdown_header(button, section_prop, "button_import_expand", "Import", "IMPORT")
-        if button:
-            self.draw_import(layout, section_prop)
-
-        if hasattr(context.scene, "pmp_props"):
-                from modpack.panel import draw_modpack
-                section_prop = context.scene.pmp_props
-                # MODPACKER
-                button = section_prop.button_modpack_expand
-                box = self.dropdown_header(button, section_prop, "button_modpack_expand", "Modpack", "NEWFOLDER")
-
-                if button :
-                    try:
-                        reload(draw_modpack)
-                    except:
-                        pass
-                    draw_modpack(self, layout, section_prop, devkit=True)
-      
-    def draw_export(self, context, layout, section_prop):
-        global is_exporting
-
-        if section_prop.export_total > 0:
-            layout.separator(factor=0.5)
-
-            total = section_prop.export_total
-            step = section_prop.export_step
-            total_time = section_prop.export_time
-            if step < 1:
-                time_left = "Estimating duration..."
-            else:
-                average_time = total_time / step
-                estimate = int((total - step) * average_time)
-
-                if estimate < 0:
-                    time_left = f"~{estimate} seconds"
-                else:
-                    minutes = estimate / 60
-                    seconds = estimate % 60
-                    time_left = f"~{int(minutes)} min {int(seconds)} seconds"
-
-            row = layout.row(align=True)
-            row.alignment = "CENTER"
-            row.progress(
-                factor=section_prop.export_progress, 
-                text=f"Exporting: {step + 1}/{total}",
-                type="RING")
-            row.label(text=f"{time_left}")
-            row = layout.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text=f"{section_prop.export_file_name}")
-
-            layout.separator(factor=0.5)
-        else:
-            row = layout.row(align=True)
-            row.prop(section_prop, "export_display_directory", text="")
-            row.operator("ya.dir_selector", icon="FILE_FOLDER", text="").category = "export"
-
-            row = layout.row(align=True)
-            col = row.column(align=True)
-            col.operator("ya.simple_export", text="Simple Export")
-            col2 = row.column(align=True)
-            col2.operator("ya.batch_queue", text="Batch Export")
-            
-            export_text = "GLTF" if section_prop.file_gltf else "FBX"
-            icon = "BLENDER" if section_prop.file_gltf else "VIEW3D"
-            col3 = row.column(align=True)
-            col3.alignment = "RIGHT"
-            col3.prop(section_prop, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
-
-        box = layout.box()
-        row = box.row(align=True)
-        if section_prop.export_body_slot == "Chest & Legs":
-            row.label(text=f"Body Part: Chest")
-        else:
-            row.label(text=f"Body Part: {section_prop.export_body_slot}")
-
-        options =[
-            ("Chest", "MOD_CLOTH"),
-            ("Legs", "BONE_DATA"),
-            ("Hands", "VIEW_PAN"),
-            ("Feet", "VIEW_PERSPECTIVE"),
-            ("Chest & Legs", "ARMATURE_DATA")
-            ]
-        
-        self.body_category_buttons(row, section_prop, options)
-    
-            
-        # CHEST EXPORT  
-        
-        button_type = "export"
-        if section_prop.export_body_slot == "Chest" or section_prop.export_body_slot == "Chest & Legs":
-
-            category = "Chest"
-
-            labels = {"Buff": "Buff", "Rue": "Rue", "Piercings": "Piercings"}
-    
-            self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type)
-
-
-            layout.separator(factor=0.5, type="LINE")
-            
-            labels = {
-                "Large":      "Large",    
-                "Medium":     "Medium",   
-                "Small":      "Small",    
-                "Omoi":       "Omoi",     
-                "Sayonara":   "Sayonara", 
-                "Mini":       "Mini",     
-                "Sugoi Omoi": "Sugoi Omoi", 
-                "Tsukareta":  "Tsukareta", 
-                "Tsukareta+": "Tsukareta+"
-            }
-    
-            self.dynamic_column_buttons(3, layout, section_prop, labels, category, button_type)
-            
-        # LEG EXPORT  
-        
-        if section_prop.export_body_slot == "Legs" or section_prop.export_body_slot == "Chest & Legs":
-            category = "Legs"
-
-            if section_prop.export_body_slot == "Chest & Legs":
-                layout.separator(factor=1, type="LINE")
-                row = layout.row(align=True)
-                row.label(text=f"Body Part: Legs")
-
-            labels = {
-                "Gen A":  "Gen A",
-                "Gen B":  "Gen B", 
-                "Gen C":  "Gen C",
-                "Gen SFW":  "Gen SFW",
-                "Melon": "Melon",
-                "Skull": "Skull",  
-                "Mini": "Mini",
-                "Pubes":  "Pubes"
-            }
-            
-            self.dynamic_column_buttons(4, layout, section_prop, labels, category, button_type)
-
-            layout.separator(factor=0.5, type="LINE")
-
-            labels = {
-                "Small Butt": "Small Butt",
-                "Rue": "Rue",
-                "Soft Butt": "Soft Butt", 
-                "Hip Dips":  "Hip Dips",
-            }
-    
-            self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type) 
-
-        # HAND EXPORT  
-        
-        if section_prop.export_body_slot == "Hands":
-            
-            category = "Hands"
-            labels = {
-                "YAB": "YAB", 
-                "Rue": "Rue"
-                }
-    
-            self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
-            
-            layout.separator(factor=0.5, type="LINE")
-
-            labels = {
-                "Long": "Long", 
-                "Short": "Short", 
-                "Ballerina": "Ballerina", 
-                "Stabbies": "Stabbies" 
-                }
-
-            self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
-
-            row = layout.row(align=True)
-            row.label(text="Clawsies:")
-
-            labels = { 
-                "Straight": "Straight", 
-                "Curved": "Curved"
-                }
-
-            self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
-
-            row = layout.row(align=True)
-
-        # FEET EXPORT  
-        
-        if section_prop.export_body_slot == "Feet":
-            
-            category = "Feet"
-            labels = {
-                "YAB": "YAB", 
-                "Rue": "Rue", 
-                }
-    
-            self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
-
-            layout.separator(factor=0.5, type="LINE")
-
-            labels = { 
-                "Clawsies": "Clawsies"
-                }
-
-            self.dynamic_column_buttons(2, layout, section_prop, labels, category, button_type)
-       
-        layout.separator(factor=0.5, type="LINE")
-
-        box = layout.box()
-        row = box.row(align=True)
-        row.alignment = "CENTER"
-        row.label(text="Advanced Options")
-
-        layout.separator(factor=0.1) 
-
-        row = layout.row(align=True)
-        split = row.split(factor=0.33)
-        col = split.column(align=True)
-        col.alignment = "RIGHT"
-        col.label(text="Force YAS:")
-        col.label(text="Check Tris:")
-        col.label(text="Shape Keys:")
-        col.label(text="Subfolder:")
-        
-        col2 = split.column(align=True)
-        col2.alignment = "RIGHT"
-        icon = 'CHECKMARK' if section_prop.force_yas else 'PANEL_CLOSE'
-        text = 'Enabled' if section_prop.force_yas else 'Disabled'
-        col2.prop(section_prop, "force_yas", text=text, icon=icon)
-        icon = 'CHECKMARK' if section_prop.check_tris else 'PANEL_CLOSE'
-        text = 'Enabled' if section_prop.check_tris else 'Disabled'
-        col2.prop(section_prop, "check_tris", text=text, icon=icon)
-        icon = 'CHECKMARK' if section_prop.keep_shapekeys else 'PANEL_CLOSE'
-        text = 'Keep' if section_prop.keep_shapekeys else 'Remove'
-        col2.prop(section_prop, "keep_shapekeys", text=text, icon=icon)
-        icon = 'CHECKMARK' if section_prop.keep_shapekeys else 'PANEL_CLOSE'
-        text = 'Create' if section_prop.create_subfolder else 'Ignore'
-        col2.prop(section_prop, "create_subfolder", text=text, icon=icon)
-
-        layout.separator(factor=0.5)
-    
-    def draw_import(self, layout, section_prop):
-        layout = self.layout
-        row = layout.row(align=True)
-        col = row.column(align=True)
-        col.operator("ya.simple_import", text="Import")
-
-        col2 = row.column(align=True)
-        col2.operator("ya.simple_cleanup", text="Cleanup")
-        
-        export_text = "GLTF" if section_prop.file_gltf else "FBX"
-        icon = "BLENDER" if section_prop.file_gltf else "VIEW3D"
-        col3 = row.column(align=True)
-        col3.alignment = "RIGHT"
-        col3.prop(section_prop, "file_gltf", text=export_text, icon=icon, invert_checkbox=True)
-
-        box = layout.box()
-        row = box.row(align=True)
-        row.alignment = "CENTER"
-        row.label(text="Cleanup Options") 
-
-        layout.separator(factor=0.1)  
-
-        row = layout.row(align=True)
-        split = row.split(factor=0.33)
-        col = split.column(align=True)
-        col.alignment = "RIGHT"
-        col.label(text="Fix Parenting:")
-        col.label(text="Update Material:")
-        col.label(text="Rename:")
-        
-        col2 = split.column(align=True)
-        col2.alignment = "RIGHT"
-        icon = 'CHECKMARK' if section_prop.fix_parent else 'PANEL_CLOSE'
-        text = 'Enabled' if section_prop.fix_parent else 'Disabled'
-        col2.prop(section_prop, "fix_parent", text=text, icon=icon)
-        icon = 'CHECKMARK' if section_prop.update_material else 'PANEL_CLOSE'
-        text = 'Enabled' if section_prop.update_material else 'Disabled'
-        col2.prop(section_prop, "update_material", text=text, icon=icon)
-        col2.prop(section_prop, "rename_import", text="")
-
-        layout.separator(factor=0.5)
-
-    def dynamic_column_buttons(self, columns, box, section_prop, labels, category, button_type):
-        row = box.row(align=True)
-
-        columns_list = [row.column(align=True) for _ in range(columns)]
-
-        for index, (size, name) in enumerate(labels.items()):
-            size_lower = size.lower().replace(' ', "_")
-            category_lower = category.lower()
-
-            prop_name = f"{button_type}_{size_lower}_{category_lower}_bool"
-
-            if hasattr(section_prop, prop_name):
-                icon = 'CHECKMARK' if getattr(section_prop, prop_name) else 'PANEL_CLOSE'
-                
-                col_index = index % columns 
-                
-                columns_list[col_index].prop(section_prop, prop_name, text=name, icon=icon)
-            else:
-                print(f"{name} has no assigned property!")
-        return box  
-
-    def dropdown_header(self, button, section_prop, prop_str=str, label=str, extra_icon=""):
-        layout = self.layout
-        row = layout.row(align=True)
-        split = row.split(factor=1)
-        box = split.box()
-        sub = box.row(align=True)
-        sub.alignment = 'LEFT'
-
-        icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-        sub.prop(section_prop, prop_str, text="", icon=icon, emboss=False)
-        sub.label(text=label)
-        if extra_icon != "":
-            sub.label(icon=extra_icon)
-        
-        return box
-
-    def body_category_buttons(self, layout, section_prop, options):
-        row = layout
-
-        for slot, icon in options:
-            depress = True if section_prop.export_body_slot == slot else False
-            row.operator("ya.set_body_part", text="", icon=icon, depress=depress).body_part = slot
-
+        for slot, icon in options.items():
+            depress = True if ui_selector == slot else False
+            operator = row.operator("yakit.set_ui", text="", icon=icon, depress=depress)
+            operator.overview = slot
+            operator.panel = panel
 
 CLASSES = [
     CollectionState,
@@ -2676,22 +1473,10 @@ CLASSES = [
     CollectionManager,
     ApplyShapes,
     ApplyVisibility,
-    SimpleExport,
-    SimpleCleanUp,
-    BatchQueue,
-    FileExport,
-    SimpleImport,
-    BodyPartSlot,
-    DirSelector,
-    UISelector,
+    ResetQueue,
+    PanelCategory,
+    Overview
 ]
-
-UI_CLASSES = [
-    Overview,
-    OutfitStudio,
-    FileManager
-]
-
 
 def delayed_setup(dummy=None):
     global devkit_registered  
@@ -2732,24 +1517,21 @@ def set_devkit_properties():
         type=ObjectState)
 
     DevkitProps.ui_buttons()
-    
+    DevkitProps.shpk_bools()
     DevkitProps.export_bools()
-    DevkitProps.extra_options()
  
 def register():
 
     for cls in CLASSES:
         bpy.utils.register_class(cls)
+        if cls == DevkitProps:
+            set_devkit_properties()
 
-    set_devkit_properties()
     bpy.app.timers.register(delayed_setup, first_interval=1)
     bpy.app.handlers.load_post.append(delayed_setup)
 
-    for cls in UI_CLASSES:
-        bpy.utils.register_class(cls)
-
 def unregister():
-    for cls in reversed(CLASSES + UI_CLASSES):
+    for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)
 
     del bpy.types.Scene.devkit_props
