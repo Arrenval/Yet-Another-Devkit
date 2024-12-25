@@ -1,4 +1,4 @@
-DEVKIT_VER = (0, 9, 0)
+DEVKIT_VER = (0, 9, 1)
 
 import bpy   
 
@@ -362,16 +362,14 @@ class CollectionManager(Operator):
     preset: StringProperty() # type: ignore
 
     def __init__(self):
-        self.props                              = bpy.context.scene.devkit_props
+        self.props             :DevkitProps     = bpy.context.scene.devkit_props
         self.view_layer                         = bpy.context.view_layer.layer_collection
         self.collections_state :CollectionState = self.props.collection_state
-        self.object_state      :ObjectState      = self.props.object_state
+        self.object_state      :ObjectState     = self.props.object_state
         self.coll                               = bpy.data.collections
         self.export_collections = [
             self.coll["Skeleton"],
             self.coll["Resources"],
-            self.coll["Controller"],
-            self.coll["Shape"],
             self.coll["Data Sources"],
             self.coll["UV/Weights"],
             self.coll["Nail UVs"],
@@ -391,7 +389,7 @@ class CollectionManager(Operator):
                 self.export_collections.append(collection)
             self.restore = self.export_collections
             self.save_current_state(context)
-            context.view_layer.layer_collection.children['Resources'].hide_viewport = True
+            context.view_layer.layer_collection.children['Resources'].children['Data Sources'].hide_viewport = True
             self.props.controller_uv_transfers = True
         
         elif self.preset == "Restore":
@@ -495,15 +493,17 @@ def get_chest_category(size:str) -> str | None:
 
 def get_shape_presets(size:str) -> dict:
         shape_presets = {
-        "Large":        {"Squeeze" : 0.3,    "Squish" : 0.0,  "Push-Up" : 0.0, "Omoi" : 0.0, "Sag" : 0.0, "Nip Nops" : 0.0},
-        "Omoi":         {"Omoi" : 1.0, "Sag" : 0.0},
-        "Sugoi Omoi":   {"Omoi" : 1.0, "Sag" : 1.0},
-        "Medium":       {"Squeeze" : 0.0,  "Squish" : 0.0, "Push-Up" : 0.0, "Mini" : 0.0, "Sayonara" : 0.0, "Sag" : 0.0, "Nip Nops" : 0.0},
-        "Sayonara":     {"Sayonara" : 1.0, "Sag" : 0.0},
-        "Tsukareta":    {"Sag" : 0.6},
-        "Tsukareta+":   {"Sag" : 1.0},
-        "Mini":         {"Mini" : 1.0},
-        "Small":        {"Squeeze" : 0.0, "Nip Nops" : 0.0}
+        "Large":        {"Squeeze": 0.3, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 0.0,                   "Sag": 0.0, "Nip Nops": 0.0},
+        "Omoi":         {"Squeeze": 0.3, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 1.0,                   "Sag": 0.0, "Nip Nops": 0.0},
+        "Sugoi Omoi":   {"Squeeze": 0.3, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 1.0,                   "Sag": 1.0, "Nip Nops": 0.0},
+        
+        "Medium":       {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara" : 0.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Sayonara":     {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara" : 1.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Tsukareta":    {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara" : 0.0, "Sag": 0.6, "Nip Nops": 0.0},
+        "Tsukareta+":   {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara" : 0.0, "Sag": 1.0, "Nip Nops": 0.0},
+        "Mini":         {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 1.0, "Sayonara" : 0.0, "Sag": 0.0, "Nip Nops": 0.0},
+
+        "Small":        {"Squeeze": 0.0,                                                                             "Nip Nops": 0.0}
         }
         return shape_presets[size]
 
@@ -1456,6 +1456,7 @@ def delayed_setup(dummy=None) -> None:
     return None
 
 def cleanup_props(dummy=None) -> None:
+    global devkit_registered  
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)
 
@@ -1464,6 +1465,7 @@ def cleanup_props(dummy=None) -> None:
     del bpy.types.Scene.object_state
     bpy.app.handlers.load_post.remove(delayed_setup)
     bpy.app.handlers.load_pre.remove(cleanup_props)
+    devkit_registered = False
 
 def set_devkit_properties() -> None:
     bpy.types.Scene.devkit_props = PointerProperty(
