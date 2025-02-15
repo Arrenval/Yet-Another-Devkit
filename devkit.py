@@ -1,4 +1,4 @@
-DEVKIT_VER = (0, 9, 1)
+DEVKIT_VER = (0, 10, 0)
 
 import bpy   
 
@@ -47,46 +47,81 @@ class ObjectState(PropertyGroup):
 
 class DevkitProps(PropertyGroup):
 
-    #       Shapes:         (Name,          Slot/Misc,      Category, Description,                                           Body,             Shape Key)
-    ALL_SHAPES = {
-            "Large":        ("Large",       "Chest",        "Large",  "Standard Large",                                      "",               "LARGE"),
-            "Omoi":         ("Omoi",        "Chest",        "Large",  "Large, but saggier",                                  "",               ""),
-            "Sugoi Omoi":   ("Sugoi Omoi",  "Chest",        "Large",  "Omoi, but saggier",                                   "",               ""),
-            "Medium":       ("Medium",      "Chest",        "Medium", "Standard Medium",                                     "",               "MEDIUM"),
-            "Sayonara":     ("Sayonara",    "Chest",        "Medium", "Medium with more separation",                         "",               ""),
-            "Tsukareta":    ("Tsukareta",   "Chest",        "Medium", "Medium, but saggier",                                 "",               ""),
-            "Tsukareta+":   ("Tsukareta+",  "Chest",        "Medium", "Tsukareta, but saggier",                              "",               ""),
-            "Mini":         ("Mini",        "Chest",        "Medium", "Medium, but smaller",                                 "",               ""),
-            "Small":        ("Small",       "Chest",        "Small",  "Standard Small",                                      "",               "SMALL"),
-            "Rue":          ("Rue",         "Chest",        "",       "Adds tummy",                                          "",               "Rue"),
-            "Buff":         ("Buff",        "Chest",        "",       "Adds muscle",                                         "",               "Buff"),
-            "Piercings":    ("Piercings",   "Chest",        "",       "Adds piercings",                                      "",               ""),
-            "Rue Legs":     ("Rue",         "Legs",         "",       "Adds tummy and hip dips.",                            "",               "Rue"),
-            "Melon":        ("Melon",       "Legs",         "Legs",   "For crushing melons",                                 "",               "Gen A/Watermelon Crushers"),
-            "Skull":        ("Skull",       "Legs",         "Legs",   "For crushing skulls",                                 "",               "Skull Crushers"),
-            "Small Butt":   ("Small Butt",  "Legs",         "Butt",   "Not actually small",                                  "",               "Small Butt"),
-            "Mini Legs":    ("Mini",        "Legs",         "Legs",   "Smaller legs",                                        "",               "Mini"),
-            "Soft Butt":    ("Soft Butt",   "Legs",         "Butt",   "Less perky butt",                                     "",               "Soft Butt"),
-            "Hip Dips":     ("Hip Dips",    "Legs",         "Hip",    "Removes hip dips on Rue, adds them on YAB",           "",               "Alt Hips"),
-            "Gen A":        ("Gen A",       "Legs",         "Vagina", "Labia majora",                                        "",               ""),
-            "Gen B":        ("Gen B",       "Legs",         "Vagina", "Visible labia minora",                                "",               "Gen B"),
-            "Gen C":        ("Gen C",       "Legs",         "Vagina", "Open vagina",                                         "",               "Gen C"),
-            "Gen SFW":      ("Gen SFW",     "Legs",         "Vagina", "Barbie doll",                                         "",               "Gen SFW"), 
-            "Pubes":        ("Pubes",       "Legs",         "Pubes",  "Adds pubes",                                          "",               ""),
-            "YAB Hands":    ("YAB",         "Hands",        "Hands",  "YAB hands",                                           "",               ""),
-            "Rue Hands":    ("Rue",         "Hands",        "Hands",  "Changes hand shape to Rue",                           "",               "Rue"),
-            "Long":         ("Long",        "Hands",        "Nails",  "They're long",                                        "",               ""),
-            "Short":        ("Short",       "Hands",        "Nails",  "They're short",                                       "",               "Short Nails"),
-            "Ballerina":    ("Ballerina",   "Hands",        "Nails",  "Some think they look like shoes",                     "",               "Ballerina"),
-            "Stabbies":     ("Stabbies",    "Hands",        "Nails",  "You can stab someone's eyes with these",              "",               "Stabbies"),
-            "Straight":     ("Straight",    "Hands",        "Nails",  "When you want to murder instead",                     "",               ""),
-            "Curved":       ("Curved",      "Hands",        "Nails",  "If you want to murder them a bit more curved",        "",               "Curved"),
-            "YAB Feet":     ("YAB",         "Feet",         "Feet",   "YAB feet",                                            "",               ""),
-            "Rue Feet":     ("Rue",         "Feet",         "Feet",   "Changes foot shape to Rue",                           "",               "Rue"),
-            "Clawsies":     ("Clawsies",    "Feet",         "Claws",  "Good for kicking",                                    "",               ""),
+    #       Shapes:         (Name,           Slot/Misc,      Category, Description,                                           Body,             Shape Key)
+    ALL_SHAPES = { 
+            "Large":        ("Large",        "Chest",        "Large",  "Standard Large",                                      False,               "LARGE"),
+            "Omoi":         ("Omoi",         "Chest",        "Large",  "Large, but saggier",                                  False,               ""),
+            "Sugoi Omoi":   ("Sugoi Omoi",   "Chest",        "Large",  "Omoi, but saggier",                                   False,               ""),
+            "Uranus":       ("Uranus",       "Chest",        "Large",  "Uranus Redux",                                        False,               ""),
+            "Medium":       ("Medium",       "Chest",        "Medium", "Standard Medium",                                     False,               "MEDIUM"),
+            "Sayonara":     ("Sayonara",     "Chest",        "Medium", "Medium with more separation",                         False,               ""),
+            "Tsukareta":    ("Tsukareta",    "Chest",        "Medium", "Medium, but saggier",                                 False,               ""),
+            "Tsukareta+":   ("Tsukareta+",   "Chest",        "Medium", "Tsukareta, but saggier",                              False,               ""),
+            "Mini":         ("Mini",         "Chest",        "Medium", "Medium, but smaller",                                 False,               ""),
+            "Small":        ("Small",        "Chest",        "Small",  "Standard Small",                                      False,               "SMALL"),
+            "Flat":         ("Flat",         "Chest",        "Masc",   "Yet Another Masc",                                    False,                "MASC"),
+            "Pecs":         ("Pecs",         "Chest",        "Masc",   "Defined Pecs for Masc",                               False,               "MASC"),
+            "Lava Omoi":    ("Lava Omoi",    "Chest",        "Large",  "Biggest Lavatiddy",                                   False,               ""),
+            "Teardrop":     ("Teardrop",     "Chest",        "Medium", "Medium Lavatiddy",                                    False,               ""),
+            "Cupcake":      ("Cupcake",      "Chest",        "Small",  "Small Lavatiddy",                                     False,               ""),
+            "Sugar":        ("Sugar",        "Chest",        "Small",  "Smallest Lavatiddy",                                  False,               ""),
+            "YAB":          ("YAB",          "Chest",        "",       "Base size",                                           True,                "Rue"),
+            "Rue":          ("Rue",          "Chest",        "",       "Adds tummy",                                          True,                "Rue"),
+            "Lava":         ("Lava",         "Chest",        "",       "Lavabod",                                             True,                "Lavabod"),
+            "Buff":         ("Buff",         "Chest",        "",       "Adds muscle",                                         False,               "Buff"),
+            "Piercings":    ("Piercings",    "Chest",        "",       "Adds piercings",                                      False,               ""),
+            "YAB Legs":     ("YAB",          "Legs",         "",       "Base size",                                           True,                ""),
+            "Rue Legs":     ("Rue",          "Legs",         "",       "Adds tummy and hip dips",                             True,                "Rue"),
+            "Lava Legs":    ("Lava",         "Legs",         "",       "Bigger hips, butt and hip dips",                      True,                "Lavabod"),
+            "Masc Legs":    ("Masc",         "Legs",         "",       "Yet Another Masc",                                    True,                "Masc"),
+            "Melon":        ("Melon",        "Legs",         "Legs",   "For crushing melons",                                 False,               "Gen A/Watermelon Crushers"),
+            "Skull":        ("Skull",        "Legs",         "Legs",   "For crushing skulls",                                 False,               "Skull Crushers"),
+            "Small Butt":   ("Small Butt",   "Legs",         "Butt",   "Not actually small",                                  False,               "Small Butt"),
+            "Mini Legs":    ("Mini",         "Legs",         "Legs",   "Smaller legs",                                        False,               "Mini"),
+            "Soft Butt":    ("Soft Butt",    "Legs",         "Butt",   "Less perky butt",                                     False,               "Soft Butt"),
+            "Hip Dips":     ("Hip Dips",     "Legs",         "Hip",    "Removes hip dips on Rue, adds them on YAB",           False,               "Alt Hips"),
+            "Gen A":        ("Gen A",        "Legs",         "Vagina", "Labia majora",                                        False,               ""),
+            "Gen B":        ("Gen B",        "Legs",         "Vagina", "Visible labia minora",                                False,               "Gen B"),
+            "Gen C":        ("Gen C",        "Legs",         "Vagina", "Open vagina",                                         False,               "Gen C"),
+            "Gen SFW":      ("Gen SFW",      "Legs",         "Vagina", "Barbie doll",                                         False,               "Gen SFW"), 
+            "Pubes":        ("Pubes",        "Legs",         "Pubes",  "Adds pubes",                                          False,               ""),
+            "YAB Hands":    ("YAB",          "Hands",        "Hands",  "YAB hands",                                           True,                ""),
+            "Rue Hands":    ("Rue",          "Hands",        "Hands",  "Changes hand shape to Rue",                           True,                "Rue"),
+            "Lava Hands":   ("Lava",         "Hands",        "Hands",  "Changes hand shape to Lavabod",                       True,                "Lavabod"),
+            "Long":         ("Long",         "Hands",        "Nails",  "They're long",                                        False,               ""),
+            "Short":        ("Short",        "Hands",        "Nails",  "They're short",                                       False,               "Short Nails"),
+            "Ballerina":    ("Ballerina",    "Hands",        "Nails",  "Some think they look like shoes",                     False,               "Ballerina"),
+            "Stabbies":     ("Stabbies",     "Hands",        "Nails",  "You can stab someone's eyes with these",              False,               "Stabbies"),
+            "Straight":     ("Straight",     "Hands",        "Nails",  "When you want to murder instead",                     False,               ""),
+            "Curved":       ("Curved",       "Hands",        "Nails",  "If you want to murder them a bit more curved",        False,               "Curved"),
+            "YAB Feet":     ("YAB",          "Feet",         "Feet",   "YAB feet",                                            True,                ""),
+            "Rue Feet":     ("Rue",          "Feet",         "Feet",   "Changes foot shape to Rue",                           True,                "Rue"),
+            "Clawsies":     ("Clawsies",     "Feet",         "Claws",  "Good for kicking",                                    False,               ""),
             }
 
-    is_exporting = False
+    torso_floats = [{
+        #YAB
+        "Large" : {"Squeeze": 0.3, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 0.0, "Uranus Redux": 0.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Medium": {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara": 0.0,     "Sag": 0.0, "Nip Nops": 0.0},
+        "Small" : {"Squeeze": 0.0,                                                                                "Nip Nops": 0.0}},
+        #Lava
+        {
+        "Large" : {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 0.0, "Uranus Redux": 0.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Medium": {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara": 0.0,     "Sag": 0.0, "Nip Nops": 0.0},
+        "Small" : {"Squeeze": 0.0,  "Sugar": 0.0,                                                                 "Nip Nops": 0.0}}]
+    
+    mq_floats = [{
+        #YAB
+        "Large" : {"Squeeze": 0.3, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 0.0, "Uranus Redux": 0.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Medium": {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara": 0.0,     "Sag": 0.0, "Nip Nops": 0.0},
+        "Small" : {"Squeeze": 0.0,                                                                                "Nip Nops": 0.0}},
+        #Lava
+        {
+        "Large" : {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 0.0, "Uranus Redux": 0.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Medium": {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara": 0.0,     "Sag": 0.0, "Nip Nops": 0.0},
+        "Small" : {"Squeeze": 0.0,  "Sugar": 0.0,                                                                 "Nip Nops": 0.0}}]
+
+    is_exporting: bool = False
 
     ui_buttons_list = [
     ("export",   "expand",   "Opens the category"),
@@ -111,7 +146,6 @@ class DevkitProps(PropertyGroup):
     ]
 
     controller_modifiers = [
-            ("UV Transfers",       False,   "Toggles UV transfers for various breast sizes. Toggling it off makes shape sliders operate more smoothly. Off by default, exporting automatically turns it on"),
             ("Triangulation",      True,    "Toggles triangulation of the body meshes"),
             ("YAS Chest",          False,   "Toggles YAS"),
             ("YAS Legs",           False,   "Toggles YAS"),
@@ -178,7 +212,7 @@ class DevkitProps(PropertyGroup):
     def chest_key_floats() -> None:
         # Creates float properties for chest shape keys controlled by values.
         # Automatically assigns drivers to the models to be controlled by the UI.
-        key_filter = ["squeeze", "squish", "pushup", "omoi", "sag", "nipnops", "sayonara", "mini"]
+        key_filter = ["squeeze", "squish", "pushup", "omoi", "sag", "nipnops", "sayonara", "mini", "softnips", "uranusredux", "sugar", "pecs"]
         torso = bpy.data.meshes["Torso"]
         mq = bpy.data.meshes["Mannequin"]
         control = bpy.data.meshes["Chest Controller"]
@@ -312,6 +346,12 @@ class DevkitProps(PropertyGroup):
                     items.append(None)
                 if name == "Small":
                     items.append(None)
+                if name == "Lava Omoi":
+                    items.append(None)
+                    items.append((name, "Omoi", description))
+                    continue
+                if name == "Flat":
+                    items.append(None)
                 items.append((name, name, description))
         return items
 
@@ -374,33 +414,32 @@ class CollectionManager(Operator):
             self.coll["UV/Weights"],
             self.coll["Nail UVs"],
             self.coll["Rue"],
-            self.coll["YAS"],
-            self.coll["Piercings"]
+            self.coll["YAS"]
         ]
         self.restore = []
         self.obj_visibility = {}
     
-    def execute(self, context:Context): 
-        if self.preset == "Export":
+    def execute(self, context:Context):
+        if self.preset == "Export": 
             self.get_obj_visibility(context)
             for state in self.collections_state:
                 name = state.name
                 collection = self.coll[name]
                 self.export_collections.append(collection)
             self.restore = self.export_collections
-            self.save_current_state(context)
             context.view_layer.layer_collection.children['Resources'].children['Data Sources'].hide_viewport = True
-            self.props.controller_uv_transfers = True
+            # Export state has been set by now, this saves pre-export scene to be restored after export
+            self.save_current_state(context)
+            self.exclude_collections(context)
+            self.restore_obj_visibility()
         
-        elif self.preset == "Restore":
+        elif self.preset == "Restore": 
             for state in self.collections_state:
                     name = state.name
                     collection = self.coll[name]
                     self.restore.append(collection)
-            self.props.controller_uv_transfers = False
             self.exclude_collections(context)
             self.restore_obj_visibility()
-            return {"FINISHED"}
         
         elif self.preset == "Animation":
             self.get_obj_visibility(context)
@@ -409,17 +448,10 @@ class CollectionManager(Operator):
             context.view_layer.layer_collection.children['Resources'].children['Connectors'].exclude = True
             context.view_layer.layer_collection.children['Resources'].children['Nail Kit'].exclude = True
             context.view_layer.layer_collection.children['Resources'].children['Controller'].exclude = True
-            return {"FINISHED"}
-        
+
         else:
             self.save_current_state(context)
-            for state in self.collections_state:
-                    name = state.name
-                    collection = self.coll[name]
-                    self.restore.append(collection)
-
-        self.exclude_collections(context)
-        self.restore_obj_visibility()
+            self.get_obj_visibility(context)
         return {"FINISHED"}
 
     def save_current_state(self, context:Context):
@@ -473,6 +505,7 @@ class CollectionManager(Operator):
         for child in layer_collection.children:
             self.recursively_toggle_exclude(child, collection, exclude)
 
+
 def get_chest_size_keys(chest_subsize:str) -> str:
     """category, sizekey"""
     chest_category = get_chest_category(chest_subsize)
@@ -493,17 +526,25 @@ def get_chest_category(size:str) -> str | None:
 
 def get_shape_presets(size:str) -> dict:
         shape_presets = {
-        "Large":        {"Squeeze": 0.3, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 0.0,                   "Sag": 0.0, "Nip Nops": 0.0},
-        "Omoi":         {"Squeeze": 0.3, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 1.0,                   "Sag": 0.0, "Nip Nops": 0.0},
-        "Sugoi Omoi":   {"Squeeze": 0.3, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 1.0,                   "Sag": 1.0, "Nip Nops": 0.0},
+        "Large":        {"Squeeze": 0.3, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 0.0, "Uranus Redux": 0.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Omoi":         {"Squeeze": 0.3, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 1.0, "Uranus Redux": 0.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Sugoi Omoi":   {"Squeeze": 0.3, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 1.0, "Uranus Redux": 0.0, "Sag": 1.0, "Nip Nops": 0.0},
+        "Uranus":       {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 0.0, "Uranus Redux": 1.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Lava Omoi":    {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Omoi": 0.0, "Uranus Redux": 0.0, "Sag": 0.0, "Nip Nops": 0.0},
         
-        "Medium":       {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara" : 0.0, "Sag": 0.0, "Nip Nops": 0.0},
-        "Sayonara":     {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara" : 1.0, "Sag": 0.0, "Nip Nops": 0.0},
-        "Tsukareta":    {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara" : 0.0, "Sag": 0.6, "Nip Nops": 0.0},
-        "Tsukareta+":   {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara" : 0.0, "Sag": 1.0, "Nip Nops": 0.0},
-        "Mini":         {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 1.0, "Sayonara" : 0.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Medium":       {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara": 0.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Sayonara":     {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara": 1.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Tsukareta":    {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara": 0.0, "Sag": 0.6, "Nip Nops": 0.0},
+        "Tsukareta+":   {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara": 0.0, "Sag": 1.0, "Nip Nops": 0.0},
+        "Mini":         {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 1.0, "Sayonara": 0.0, "Sag": 0.0, "Nip Nops": 0.0},
+        "Teardrop":     {"Squeeze": 0.0, "Squish": 0.0,  "Push-Up": 0.0,  "Mini": 0.0, "Sayonara": 0.0, "Sag": 0.0, "Nip Nops": 0.0},
 
-        "Small":        {"Squeeze": 0.0,                                                                             "Nip Nops": 0.0}
+        "Small":        {"Squeeze": 0.0,                                                                            "Nip Nops": 0.0},
+        "Cupcake":      {"Squeeze": 0.0,  "Sugar": 0.0,                                                             "Nip Nops": 0.0},
+        "Sugar":        {"Squeeze": 0.0,  "Sugar": 1.0,                                                             "Nip Nops": 0.0},
+
+        "Flat":         {"Pecs": 0.0,                                                                               "Nip Nops": 0.0},
+        "Pecs":         {"Pecs": 1.0,                                                                               "Nip Nops": 0.0}
         }
         return shape_presets[size]
 
@@ -572,27 +613,33 @@ class ApplyShapes(Operator):
                 if self.key == "Alt Hips" and self.target == "Legs" and not obj["Mini"].mute:
                     self.report({"ERROR"}, "Mini not compatible with alternate hips!")
                     return {"CANCELLED"}
-                ApplyShapes.toggle_other(obj, self.key)
+                if self.key == "Alt Hips" and self.target == "Legs" and not obj["Lavabod"].mute:
+                    self.report({"ERROR"}, "Lavabod not compatible with alternate hips!")
+                    return {"CANCELLED"}
+                if self.key == "Alt Hips" and self.target == "Legs" and not obj["Masc"].mute:
+                    self.report({"ERROR"}, "Masc not compatible with alternate hips!")
+                    return {"CANCELLED"}
+                if self.target == "Torso" and self.key == "Lavabod":
+                    self.save_chest_sizes(context, obj, apply_target)
+                self.toggle_other(obj, self.key)
             
             case _:
                 size = context.scene.devkit_props.chest_shape_enum
+                lava_sizes = ["Lava Omoi", "Teardrop", "Cupcake", "Sugar"]
+                
+                if size in lava_sizes and obj["Lavabod"].mute:
+                    bpy.ops.yakit.apply_shapes(key="Lavabod", target="Torso", preset="other")
+                elif size not in lava_sizes and not obj["Lavabod"].mute:
+                    bpy.ops.yakit.apply_shapes(key="Lavabod", target="Torso", preset="other")
+
                 category = get_chest_category(size)
                 shape_presets = get_shape_presets(size)
-                ApplyShapes.reset_shape_values(apply_target, category)
+
+                # ApplyShapes.reset_shape_values(apply_target, category)
                 ApplyShapes.apply_shape_values(apply_target, category, shape_presets)
                 ApplyShapes.mute_chest_shapes(obj, category)
             
-                if apply_target == "torso":
-                    try:
-                        bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
-                    except:
-                        pass
-                else:
-                    try:
-                        bpy.context.view_layer.objects.active = get_object_from_mesh("Mannequin")
-                    except:
-                        pass
-                bpy.context.view_layer.update()
+                self.force_update(apply_target)
 
     def apply_shape_values(apply_target:str, category:str, shape_presets:dict[str, float]) -> None:
         dev_props = bpy.context.scene.devkit_props
@@ -602,6 +649,8 @@ class ApplyShapes(Operator):
 
             if norm_key == "sag" and category_lower == "large":
                 category_lower = "omoi"
+            if norm_key == "sugar":
+                category_lower = "cupcake"
             
             prop = f"key_{norm_key}_{category_lower}_{apply_target}"
             if hasattr(dev_props, prop):
@@ -617,6 +666,8 @@ class ApplyShapes(Operator):
 
             if norm_key == "sag" and category_lower == "large":
                 category_lower = "omoi"
+            if norm_key == "sugar":
+                category_lower = "cupcake"
             
             prop = f"key_{norm_key}_{category_lower}_{apply_target}"
             if hasattr(dev_props, prop):
@@ -624,17 +675,22 @@ class ApplyShapes(Operator):
                              
     def mute_chest_shapes(obj, category) -> None:
         category_mute_mapping = {
-            "Large": (True, True), 
-            "Medium": (False, True), 
-            "Small": (True, False),   
+            "Large": (True, True, True), 
+            "Medium": (False, True, True), 
+            "Small": (True, False, True),   
+            "Masc": (True, True, False),   
         }
 
         # Gets category and its bools
-        mute_medium, mute_small = category_mute_mapping.get(category, (True, True))
+        mute_medium, mute_small, mute_masc = category_mute_mapping.get(category, (True, True, True))
 
         # Apply the mute states to the target
-        obj[get_chest_size_keys("Medium")].mute = mute_medium
-        obj[get_chest_size_keys("Small")].mute = mute_small
+        obj["MEDIUM"].mute = mute_medium
+        obj["SMALL"].mute = mute_small
+        obj["MASC"].mute = mute_masc
+
+        if category == "Masc" and not obj["Lavabod"].mute:
+            bpy.ops.yakit.apply_shapes(key="Lavabod", target="Torso", preset="other")
 
     def mute_gen_shapes(obj, gen: str) -> None:
         gen_mute_mapping = {
@@ -653,21 +709,25 @@ class ApplyShapes(Operator):
 
     def mute_leg_shapes(obj, size: str) -> None:
         size_mute_mapping = {
-            "Melon": (True, True), 
-            "Skull": (False, True), 
-            "Mini": (True, False),   
+            "Melon": (True, True, True, True), 
+            "Skull": (False, True, True, True), 
+            "Mini": (True, False, True, True),   
+            "Lava": (True, True, False, True),   
+            "Masc": (True, True, True, False),   
         }
 
         # Gets category and its bools
-        mute_skull, mute_mini = size_mute_mapping.get(size, (True, True))
+        mute_skull, mute_mini, mute_lava, mute_masc = size_mute_mapping.get(size, (True, True, True, True))
 
         # Apply the mute states to the target
         obj["Skull Crushers"].mute = mute_skull
         obj["Mini"].mute = mute_mini
+        obj["Lavabod"].mute = mute_lava
+        obj["Masc"].mute = mute_masc
 
-        if not mute_mini:
-            obj["Hip Dips (for YAB)"].mute = True
-            obj["Less Hip Dips (for Rue)"].mute = True
+        # if not mute_mini:
+        #     obj["Hip Dips (for YAB)"].mute = True
+        #     obj["Less Hip Dips (for Rue)"].mute = True
 
     def mute_nail_shapes(obj, nails: str) -> None:
         nails_mute_mapping = {
@@ -685,14 +745,62 @@ class ApplyShapes(Operator):
         obj["Ballerina"].mute = mute_ballerina
         obj["Stabbies"].mute = mute_stabbies
     
-    def toggle_other(obj, key: str) -> None:
-        if key == "Rue Other":
-            key = "Rue"
-       
+    def toggle_other(self, obj, key: str) -> None:
         if obj[key].mute:
+            if self.target == "Hands" and key == "Rue":
+                obj["Lavabod"].mute = True
+            if self.target == "Hands" and key == "Lavabod":
+                obj["Rue"].mute = True
+            if self.target == "Torso" and key == "Lavabod":
+                obj["MASC"].mute = True
+
             obj[key].mute = False
         else:
             obj[key].mute = True
+
+    def save_chest_sizes(self, context:Context, obj, apply_target:str):
+        apply_mq = self.get_mannequin_category(context)
+        if obj["Lavabod"].mute:
+            index  = 1
+            backup = 0
+        else:
+            index  = 0
+            backup = 1
+
+        if apply_mq:
+            presets = DevkitProps.mq_floats
+        else:
+            presets = DevkitProps.torso_floats
+
+        for key in obj:
+            if key.name.startswith("- "):
+                name = key.name[2:]
+                presets[backup]["Large"][name] = round(key.value, 2)
+            if key.name.startswith("-- "):
+                name = key.name[3:]
+                presets[backup]["Medium"][name] = round(key.value, 2)
+            if key.name.startswith("--- "):
+                name = name = key.name[4:]
+                presets[backup]["Small"][name] = round(key.value, 2)
+
+        for size in presets[index].keys():
+            preset = presets[index][size]
+            ApplyShapes.apply_shape_values(apply_target, size, preset)
+        
+        self.force_update(apply_target)
+        
+    def force_update(self, apply_target:str):
+        if apply_target == "torso":
+            try:
+                bpy.context.view_layer.objects.active = get_object_from_mesh("Torso")
+            except:
+                pass
+        else:
+            try:
+                bpy.context.view_layer.objects.active = get_object_from_mesh("Mannequin")
+            except:
+                pass
+        bpy.context.view_layer.update()
 
 class ApplyVisibility(Operator):
     bl_idname = "yakit.apply_visibility"
@@ -776,6 +884,31 @@ class ApplyVisibility(Operator):
         else:
             collection["Resources"].children["Controller"].children["Shape"].exclude = True
 
+class TriangulateLink(Operator):
+    bl_idname = "yakit.triangulate_link"
+    bl_label = "Overview"
+    bl_description = "Links all Triangulate modifiers to this toggle"
+
+    def execute(self, context):
+        for obj in bpy.data.objects:
+            tri_mod = [modifier for modifier in obj.modifiers if modifier.type == 'TRIANGULATE']
+            for modifier in tri_mod:
+                self.add_driver(modifier)
+        return {'FINISHED'}
+
+    def add_driver(self, modifier:ShapeKey) -> None:
+            modifier.driver_remove("show_viewport")
+            driver = modifier.driver_add("show_viewport").driver
+
+            driver.type = "AVERAGE"
+            driver_var  = driver.variables.new()
+            driver_var.name = "show_viewport"
+            driver_var.type = "SINGLE_PROP"
+
+            driver_var.targets[0].id_type = 'OBJECT'
+            driver_var.targets[0].id = get_object_from_mesh("Controller")
+            driver_var.targets[0].data_path = f'modifiers["Triangulation"].show_viewport'
+
 class ResetQueue(Operator):
     bl_idname = "yakit.reset_queue"
     bl_label = "Export"
@@ -801,8 +934,6 @@ class PanelCategory(Operator):
         match self.panel:
             case "overview":
                 context.scene.devkit_props.overview_ui = self.overview
-            case "file":
-                context.scene.devkit_props.file_man_ui = self.overview
         return {'FINISHED'}
 
 class Overview(Panel):
@@ -949,8 +1080,11 @@ class Overview(Panel):
         if section_prop.overview_ui == "Settings":
             row = layout.row(align=True)
             row.alignment = "CENTER"
-            row.prop(section_prop, "controller_uv_transfers", text="UV Transfers")
             row.prop(section_prop, "controller_triangulation", text="Triangulation")
+            row = layout.row(align=True)
+            row.alignment = "CENTER"
+            col = row.column(align=True)
+            col.operator("yakit.triangulate_link", text=("Link Triangulation"))
 
             layout.separator(factor=1, type="LINE")
 
@@ -1029,26 +1163,38 @@ class Overview(Panel):
 
         medium_mute = target.data.shape_keys.key_blocks["MEDIUM"].mute
         small_mute = target.data.shape_keys.key_blocks["SMALL"].mute
+        masc_mute = target.data.shape_keys.key_blocks["MASC"].mute
         buff_mute = target.data.shape_keys.key_blocks["Buff"].mute
         rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
+        lava_mute = target.data.shape_keys.key_blocks["Lavabod"].mute
         
-        large_depress = True if small_mute and medium_mute else False
-        medium_depress = True if not medium_mute and small_mute else False
-        small_depress = True if not small_mute and medium_mute else False
+        large_depress = True if small_mute and medium_mute and masc_mute else False
+        medium_depress = True if not medium_mute and small_mute and masc_mute else False
+        small_depress = True if not small_mute and medium_mute and masc_mute else False
+        masc_depress = True if not masc_mute and medium_mute and small_mute else False
         buff_depress = True if not buff_mute else False
         rue_depress = True if not rue_mute else False
+        lava_depress = True if not lava_mute else False
         
         row = layout.row(align=True)
-        operator = row.operator("yakit.apply_shapes", text= "Large", depress=large_depress)
+        text = "Omoi" if lava_depress else "Large"
+        operator = row.operator("yakit.apply_shapes", text=text, depress=large_depress)
         operator.key = "Large"
         operator.target = "Torso"
         operator.preset = "chest_category"
-        operator = row.operator("yakit.apply_shapes", text= "Medium", depress=medium_depress)
+        text = "Teardrop" if lava_depress else "Medium"
+        operator = row.operator("yakit.apply_shapes", text= text, depress=medium_depress)
         operator.key = "Medium"
         operator.target = "Torso"
         operator.preset = "chest_category"
-        operator = row.operator("yakit.apply_shapes", text= "Small", depress=small_depress)
+        text = "Cupcake" if lava_depress else "Small"
+        operator = row.operator("yakit.apply_shapes", text= text, depress=small_depress)
         operator.key = "Small"
+        operator.target = "Torso"
+        operator.preset = "chest_category"
+
+        operator = row.operator("yakit.apply_shapes", text= "Masc", depress=masc_depress)
+        operator.key = "Masc"
         operator.target = "Torso"
         operator.preset = "chest_category"
 
@@ -1063,6 +1209,11 @@ class Overview(Panel):
         operator.target = "Torso"
         operator.preset = "other"
 
+        operator = row.operator("yakit.apply_shapes", text= "Lava", depress=lava_depress)
+        operator.key = "Lavabod"
+        operator.target = "Torso"
+        operator.preset = "other"
+
         box = layout.box()
         row = box.row()
         
@@ -1073,42 +1224,70 @@ class Overview(Panel):
             split = row.split(factor=0.25)
             col = split.column(align=True)
             col.alignment = "RIGHT"
-            col.label(text="Squeeze:")
+            if not masc_depress:
+                col.label(text="Squeeze:")
+            else:
+                col.label(text="Pecs:")
             if large_depress or medium_depress:
                 col.label(text="Squish:")
                 col.label(text="Push-Up:")
-            if medium_depress:
+            if medium_depress and not lava_depress:
                 col.label(text="Sayonara:")
                 col.label(text="Mini:")
-            if large_depress:
+            if large_depress and not lava_depress:
                 col.label(text="Omoi:")
             if large_depress or medium_depress:
                 col.label(text="Sag:")
-            col.label(text="Nip Nops:")
+            if large_depress and not lava_depress:
+                col.label(text="Uranus:")
+            if not lava_depress:
+                col.label(text="Nip Nops:")
+            else:
+                if small_depress:
+                    col.label(text="Sugar:")
+                col.label(text="Soft Nips:")
 
             if large_depress:
                 col2 = split.column(align=True)
                 col2.prop(section_prop, f"key_squeeze_large_{key_target}")
                 col2.prop(section_prop, f"key_squish_large_{key_target}")
                 col2.prop(section_prop, f"key_pushup_large_{key_target}")
-                col2.prop(section_prop, f"key_omoi_large_{key_target}")
+                if not lava_depress:
+                    col2.prop(section_prop, f"key_omoi_large_{key_target}")
                 col2.prop(section_prop, f"key_sag_omoi_{key_target}")
-                col2.prop(section_prop, f"key_nipnops_large_{key_target}")
-            
+                if not lava_depress:
+                    col2.prop(section_prop, f"key_uranusredux_large_{key_target}")
+                    col2.prop(section_prop, f"key_nipnops_large_{key_target}")
+                else:
+                    col2.prop(section_prop, f"key_softnips_lavabod_{key_target}")
             elif medium_depress:
                 col2 = split.column(align=True)
                 col2.prop(section_prop, f"key_squeeze_medium_{key_target}")
                 col2.prop(section_prop, f"key_squish_medium_{key_target}")
                 col2.prop(section_prop, f"key_pushup_medium_{key_target}")
-                col2.prop(section_prop, f"key_sayonara_medium_{key_target}")
-                col2.prop(section_prop, f"key_mini_medium_{key_target}")
+                if not lava_depress:
+                    col2.prop(section_prop, f"key_sayonara_medium_{key_target}")
+                    col2.prop(section_prop, f"key_mini_medium_{key_target}")
                 col2.prop(section_prop, f"key_sag_medium_{key_target}")
-                col2.prop(section_prop, f"key_nipnops_medium_{key_target}")
+                if not lava_depress:
+                    col2.prop(section_prop, f"key_nipnops_medium_{key_target}")
+                else:
+                    col2.prop(section_prop, f"key_softnips_teardrop_{key_target}")
 
             elif small_depress:
                 col2 = split.column(align=True)
                 col2.prop(section_prop, f"key_squeeze_small_{key_target}")
-                col2.prop(section_prop, f"key_nipnops_small_{key_target}")
+                if not lava_depress:
+                    col2.prop(section_prop, f"key_nipnops_small_{key_target}")
+                else:
+                    col2.prop(section_prop, f"key_sugar_cupcake_{key_target}")
+                    col2.prop(section_prop, f"key_softnips_cupcake_{key_target}")
+            
+            elif masc_depress:
+                col2 = split.column(align=True)
+                col2.prop(section_prop, f"key_pecs_masc_{key_target}")
+                col2.prop(section_prop, f"key_nipnops_masc_{key_target}")
+     
         
         layout.separator(factor=0.1)
 
@@ -1122,7 +1301,9 @@ class Overview(Panel):
         col2.prop(section_prop, "chest_shape_enum")
 
         col3 = split.column(align=True)
-        col3.operator("yakit.apply_shapes", text= "Apply").preset = "shapes"
+        operator = col3.operator("yakit.apply_shapes", text= "Apply")
+        operator.preset = "SHAPES"
+        operator.target = "Chest"
 
         layout.separator(factor=0.1)
 
@@ -1136,6 +1317,8 @@ class Overview(Panel):
         skull_mute = target.data.shape_keys.key_blocks["Skull Crushers"].mute
         mini_mute = target.data.shape_keys.key_blocks["Mini"].mute
         rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
+        lava_mute = target.data.shape_keys.key_blocks["Lavabod"].mute
+        masc_mute = target.data.shape_keys.key_blocks["Masc"].mute
 
         genb_mute = target.data.shape_keys.key_blocks["Gen B"].mute
         genc_mute = target.data.shape_keys.key_blocks["Gen C"].mute
@@ -1147,10 +1330,12 @@ class Overview(Panel):
         hip_yab_mute = target.data.shape_keys.key_blocks["Hip Dips (for YAB)"].mute
         hip_rue_mute = target.data.shape_keys.key_blocks["Less Hip Dips (for Rue)"].mute
 
-        melon_depress = True if skull_mute and mini_mute else False
+        melon_depress = True if skull_mute and mini_mute and lava_mute and masc_mute else False
         skull_depress = True if not skull_mute else False
         mini_depress = True if not mini_mute else False
         rue_depress = True if not rue_mute else False
+        lava_depress = True if not lava_mute else False
+        masc_depress = True if not masc_mute else False
 
         gena_depress = True if genb_mute and gensfw_mute and genc_mute else False
         genb_depress = True if not genb_mute else False
@@ -1199,6 +1384,16 @@ class Overview(Panel):
 
         operator = button_row.operator("yakit.apply_shapes", text= "Skull", depress=skull_depress)
         operator.key = "Skull"
+        operator.target = "Legs"
+        operator.preset = "leg_size"
+
+        operator = button_row.operator("yakit.apply_shapes", text= "Lava", depress=lava_depress)
+        operator.key = "Lava"
+        operator.target = "Legs"
+        operator.preset = "leg_size"
+
+        operator = button_row.operator("yakit.apply_shapes", text= "Masc", depress=masc_depress)
+        operator.key = "Masc"
         operator.target = "Legs"
         operator.preset = "leg_size"
 
@@ -1282,6 +1477,7 @@ class Overview(Panel):
         ballerina_mute = target.data.shape_keys.key_blocks["Ballerina"].mute
         stabbies_mute = target.data.shape_keys.key_blocks["Stabbies"].mute
         rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
+        lava_mute = target.data.shape_keys.key_blocks["Lavabod"].mute
         rue_f_mute = target_f.data.shape_keys.key_blocks["Rue"].mute
 
         long_depress = True if short_mute and ballerina_mute and stabbies_mute else False
@@ -1289,6 +1485,7 @@ class Overview(Panel):
         ballerina_depress = True if not ballerina_mute else False
         stabbies_depress = True if not stabbies_mute else False
         rue_depress = True if not rue_mute else False
+        lava_depress = True if not lava_mute else False
         rue_f_depress = True if not rue_f_mute else False
         hands_col = bpy.context.view_layer.layer_collection.children["Hands"].exclude
         feet_col = bpy.context.view_layer.layer_collection.children["Feet"].exclude
@@ -1307,7 +1504,12 @@ class Overview(Panel):
             hands_op.key = ""
 
         operator = button_row.operator("yakit.apply_shapes", text= "Rue", depress=rue_depress)
-        operator.key = "Rue Other"
+        operator.key = "Rue"
+        operator.target = "Hands"
+        operator.preset = "other"
+
+        operator = button_row.operator("yakit.apply_shapes", text= "Lava", depress=lava_depress)
+        operator.key = "Lavabod"
         operator.target = "Hands"
         operator.preset = "other"
 
@@ -1374,7 +1576,7 @@ class Overview(Panel):
             feet_op.target = "Feet"
             feet_op.key = ""
         operator = button_row.operator("yakit.apply_shapes", text= "Rue", depress=rue_f_depress)
-        operator.key = "Rue Other"
+        operator.key = "Rue"
         operator.target = "Feet"
         operator.preset = "other"
 
@@ -1427,6 +1629,7 @@ CLASSES = [
     CollectionManager,
     ApplyShapes,
     ApplyVisibility,
+    TriangulateLink,
     ResetQueue,
     PanelCategory,
     Overview
@@ -1458,11 +1661,24 @@ def delayed_setup(dummy=None) -> None:
 def cleanup_props(dummy=None) -> None:
     global devkit_registered  
     for cls in reversed(CLASSES):
-        bpy.utils.unregister_class(cls)
-
-    del bpy.types.Scene.devkit_props
-    del bpy.types.Scene.collection_state
-    del bpy.types.Scene.object_state
+        try:
+            bpy.utils.unregister_class(cls)
+        except:
+            continue
+    
+    try:
+        del bpy.types.Scene.devkit_props
+    except:
+        pass
+    try:
+        del bpy.types.Scene.collection_state
+    except:
+        pass
+    try:
+        del bpy.types.Scene.object_state
+    except:
+        pass
+    
     bpy.app.handlers.load_post.remove(delayed_setup)
     bpy.app.handlers.load_pre.remove(cleanup_props)
     devkit_registered = False
