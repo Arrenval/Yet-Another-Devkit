@@ -485,13 +485,24 @@ class CollectionManager(Operator):
                     obj.hide_set(state.hide)
                     
     def exclude_collections(self, context:Context):
-        all_collections = self.coll
+        collection_sort: dict[Collection, int] = {}
+
+        def sort_collections(coll:Collection, priority):
+                collection_sort[coll] = priority
+                for child in coll.children:
+                    sort_collections(child, priority + 1)
         
+        for coll in context.view_layer.layer_collection.children:
+            sort_collections(coll, 0)
+
+        to_restore = [coll.name for coll in self.restore]
+        sorted_collections = sorted(collection_sort.keys(), key=lambda x: collection_sort[x], reverse=True)
+   
         for collection in self.restore:
             self.toggle_collection_exclude(context, collection, exclude=False)
 
-        for collection in all_collections:
-            if collection not in self.restore:
+        for collection in sorted_collections:
+            if collection.name not in to_restore:
                 self.toggle_collection_exclude(context, collection, exclude=True)
     
     def toggle_collection_exclude(self, context:Context, collection:Collection, exclude=True):
@@ -499,7 +510,7 @@ class CollectionManager(Operator):
                 self.recursively_toggle_exclude(layer_collection, collection, exclude)
 
     def recursively_toggle_exclude(self, layer_collection:LayerCollection, collection:Collection, exclude):
-        if layer_collection.collection == collection:
+        if layer_collection.collection.name == collection.name:
             layer_collection.exclude = exclude
         
         for child in layer_collection.children:
