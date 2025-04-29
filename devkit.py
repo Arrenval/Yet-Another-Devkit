@@ -1,4 +1,4 @@
-DEVKIT_VER = (0, 10, 0)
+DEVKIT_VER = (0, 11, 0)
 
 import bpy   
 
@@ -59,8 +59,8 @@ class DevkitProps(PropertyGroup):
             "Tsukareta+":   ("Tsukareta+",   "Chest",        "Medium", "Tsukareta, but saggier",                              False,               ""),
             "Mini":         ("Mini",         "Chest",        "Medium", "Medium, but smaller",                                 False,               ""),
             "Small":        ("Small",        "Chest",        "Small",  "Standard Small",                                      False,               "SMALL"),
-            "Flat":         ("Flat",         "Chest",        "Masc",   "Yet Another Masc",                                    False,                "MASC"),
-            "Pecs":         ("Pecs",         "Chest",        "Masc",   "Defined Pecs for Masc",                               False,               "MASC"),
+            "Flat":         ("Flat",         "Chest",        "Masc",   "Yet Another Masc",                                    True,               "MASC"),
+            "Pecs":         ("Pecs",         "Chest",        "Masc",   "Defined Pecs for Masc",                               False,               ""),
             "Lava Omoi":    ("Lava Omoi",    "Chest",        "Large",  "Biggest Lavatiddy",                                   False,               ""),
             "Teardrop":     ("Teardrop",     "Chest",        "Medium", "Medium Lavatiddy",                                    False,               ""),
             "Cupcake":      ("Cupcake",      "Chest",        "Small",  "Small Lavatiddy",                                     False,               ""),
@@ -216,14 +216,16 @@ class DevkitProps(PropertyGroup):
         torso = bpy.data.meshes["Torso"]
         mq = bpy.data.meshes["Mannequin"]
         control = bpy.data.meshes["Chest Controller"]
-        
+
         targets = {
-             "torso": torso,
-             "mq":    mq,
-             "ctrl":  control,
+            "torso": torso,
+            "mq":    mq,
+            "ctrl":  control,
         }
-        
+
+
         for name, obj in targets.items():
+       
             key_list = get_filtered_shape_keys(obj, key_filter)
 
             for key, category, key_name in key_list:
@@ -236,7 +238,7 @@ class DevkitProps(PropertyGroup):
                     min = 0
                 
                 prop_name = f"key_{key}_{category}_{name}"
-                
+      
                 prop = FloatProperty(
                     name="",
                     default=default,
@@ -247,7 +249,7 @@ class DevkitProps(PropertyGroup):
                     subtype="PERCENTAGE"    
                 )
                 if hasattr(DevkitProps, prop_name):
-                    return None
+                    continue
                 else:
                     setattr(DevkitProps, prop_name, prop)
                 DevkitProps.add_shape_key_drivers(obj, key_name, prop_name)
@@ -401,7 +403,7 @@ class CollectionManager(Operator):
 
     preset: StringProperty() # type: ignore
 
-    def __init__(self):
+    def execute(self, context:Context):
         self.props             :DevkitProps     = bpy.context.scene.devkit_props
         self.view_layer                         = bpy.context.view_layer.layer_collection
         self.collections_state :CollectionState = self.props.collection_state
@@ -418,8 +420,7 @@ class CollectionManager(Operator):
         ]
         self.restore = []
         self.obj_visibility = {}
-    
-    def execute(self, context:Context):
+
         if self.preset == "Export": 
             self.get_obj_visibility(context)
             for state in self.collections_state:
@@ -455,17 +456,18 @@ class CollectionManager(Operator):
         return {"FINISHED"}
 
     def save_current_state(self, context:Context):
+
+        def save_current_state_recursive(layer_collection:LayerCollection):
+            if not layer_collection.exclude:
+                    state = self.collections_state.add()
+                    state.name = layer_collection.name
+            for child in layer_collection.children:
+                save_current_state_recursive(child)
+
         self.collections_state.clear()
         for layer_collection in context.view_layer.layer_collection.children:
-            self.save_current_state_recursive(layer_collection)
-    
-    def save_current_state_recursive(self, layer_collection:LayerCollection):
-        if not layer_collection.exclude:
-                state = self.collections_state.add()
-                state.name = layer_collection.name
-        for child in layer_collection.children:
-            self.save_current_state_recursive(child)
-    
+            save_current_state_recursive(layer_collection)
+      
     def get_obj_visibility(self, context:Context):
         self.object_state.clear()
         for obj in context.scene.objects:
@@ -506,16 +508,16 @@ class CollectionManager(Operator):
                 self.toggle_collection_exclude(context, collection, exclude=True)
     
     def toggle_collection_exclude(self, context:Context, collection:Collection, exclude=True):
-            for layer_collection in context.view_layer.layer_collection.children:
-                self.recursively_toggle_exclude(layer_collection, collection, exclude)
 
-    def recursively_toggle_exclude(self, layer_collection:LayerCollection, collection:Collection, exclude):
-        if layer_collection.collection.name == collection.name:
-            layer_collection.exclude = exclude
+        def recursively_toggle_exclude(layer_collection:LayerCollection, collection:Collection, exclude):
+            if layer_collection.collection.name == collection.name:
+                layer_collection.exclude = exclude
         
-        for child in layer_collection.children:
-            self.recursively_toggle_exclude(child, collection, exclude)
+            for child in layer_collection.children:
+                recursively_toggle_exclude(child, collection, exclude)
 
+        for layer_collection in context.view_layer.layer_collection.children:
+            recursively_toggle_exclude(layer_collection, collection, exclude)
 
 def get_chest_size_keys(chest_subsize:str) -> str:
     """category, sizekey"""
