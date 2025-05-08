@@ -1,4 +1,4 @@
-DEVKIT_VER = (0, 11, 0)
+DEVKIT_VER = (0, 12, 0)
 
 import bpy   
 
