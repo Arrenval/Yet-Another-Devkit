@@ -1,4 +1,4 @@
-DEVKIT_VER = (0, 12, 0)
+DEVKIT_VER = (0, 13, 0)
 
 import bpy   
 
@@ -76,7 +76,8 @@ class DevkitProps(PropertyGroup):
             "Masc Legs":    ("Masc",         "Legs",         "",       "Yet Another Masc",                                    True,                "Masc"),
             "Melon":        ("Melon",        "Legs",         "Legs",   "For crushing melons",                                 False,               "Gen A/Watermelon Crushers"),
             "Skull":        ("Skull",        "Legs",         "Legs",   "For crushing skulls",                                 False,               "Skull Crushers"),
-            "Small Butt":   ("Small Butt",   "Legs",         "Butt",   "Not actually small",                                  False,               "Small Butt"),
+            "Yanilla":      ("Yanilla",      "Legs",         "Legs",   "As Yoshi-P intended",                                 False,               "Yanilla"),
+            "Small Butt":   ("Small Butt",   "Legs",         "Butt",   "Not actually small, except when it is",               False,               "Small Butt"),
             "Mini Legs":    ("Mini",         "Legs",         "Legs",   "Smaller legs",                                        False,               "Mini"),
             "Soft Butt":    ("Soft Butt",    "Legs",         "Butt",   "Less perky butt",                                     False,               "Soft Butt"),
             "Hip Dips":     ("Hip Dips",     "Legs",         "Hip",    "Removes hip dips on Rue, adds them on YAB",           False,               "Alt Hips"),
@@ -570,7 +571,15 @@ class ApplyShapes(Operator):
     key: StringProperty() # type: ignore
     target: StringProperty() # type: ignore
     preset: StringProperty() # type: ignore # shapes, chest_category, leg_size, gen, nails, other
+    desc: StringProperty() # type: ignore # shapes, chest_category, leg_size, gen, nails, other
 
+    @classmethod
+    def description(cls, context, properties):
+        if properties.desc in DevkitProps.ALL_SHAPES:
+            return DevkitProps.ALL_SHAPES[properties.desc][3]
+        else:
+            return "Applies the selected option"
+        
     def execute(self, context):
         apply_mq = self.get_mannequin_category(context)
         apply_target = "torso"
@@ -722,21 +731,23 @@ class ApplyShapes(Operator):
 
     def mute_leg_shapes(obj, size: str) -> None:
         size_mute_mapping = {
-            "Melon": (True, True, True, True), 
-            "Skull": (False, True, True, True), 
-            "Mini": (True, False, True, True),   
-            "Lava": (True, True, False, True),   
-            "Masc": (True, True, True, False),   
+            "Melon": (True, True, True, True, True), 
+            "Skull": (False, True, True, True, True), 
+            "Mini": (True, False, True, True, True),   
+            "Lava": (True, True, False, True, True),   
+            "Masc": (True, True, True, False, True),   
+            "Yanilla": (True, True, True, True, False),   
         }
 
         # Gets category and its bools
-        mute_skull, mute_mini, mute_lava, mute_masc = size_mute_mapping.get(size, (True, True, True, True))
+        mute_skull, mute_mini, mute_lava, mute_masc, mute_yanilla= size_mute_mapping.get(size, (True, True, True, True, True))
 
         # Apply the mute states to the target
         obj["Skull Crushers"].mute = mute_skull
         obj["Mini"].mute = mute_mini
         obj["Lavabod"].mute = mute_lava
         obj["Masc"].mute = mute_masc
+        obj["Yanilla"].mute = mute_yanilla
 
         # if not mute_mini:
         #     obj["Hip Dips (for YAB)"].mute = True
@@ -1195,37 +1206,46 @@ class Overview(Panel):
         operator.key = "Large"
         operator.target = "Torso"
         operator.preset = "chest_category"
+        operator.desc   = "Lava Omoi" if lava_depress else "Large"
+
         text = "Teardrop" if lava_depress else "Medium"
         operator = row.operator("yakit.apply_shapes", text= text, depress=medium_depress)
         operator.key = "Medium"
         operator.target = "Torso"
         operator.preset = "chest_category"
+        operator.desc   = "Teardrop" if lava_depress else "Medium"
+
         text = "Cupcake" if lava_depress else "Small"
         operator = row.operator("yakit.apply_shapes", text= text, depress=small_depress)
         operator.key = "Small"
         operator.target = "Torso"
         operator.preset = "chest_category"
+        operator.desc   = "Cupcake" if lava_depress else "Small"
 
         operator = row.operator("yakit.apply_shapes", text= "Masc", depress=masc_depress)
         operator.key = "Masc"
         operator.target = "Torso"
         operator.preset = "chest_category"
+        operator.desc   = "Flat"
 
         row = layout.row(align=True)
         operator = row.operator("yakit.apply_shapes", text= "Buff", depress=buff_depress)
         operator.key = "Buff"
         operator.target = "Torso"
         operator.preset = "other"
+        operator.desc   = "Buff"
 
         operator = row.operator("yakit.apply_shapes", text= "Rue", depress=rue_depress)
         operator.key = "Rue"
         operator.target = "Torso"
         operator.preset = "other"
+        operator.desc   = "Rue"
 
         operator = row.operator("yakit.apply_shapes", text= "Lava", depress=lava_depress)
         operator.key = "Lavabod"
         operator.target = "Torso"
         operator.preset = "other"
+        operator.desc   = "Lava"
 
         box = layout.box()
         row = box.row()
@@ -1332,6 +1352,7 @@ class Overview(Panel):
         rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
         lava_mute = target.data.shape_keys.key_blocks["Lavabod"].mute
         masc_mute = target.data.shape_keys.key_blocks["Masc"].mute
+        yanilla_mute = target.data.shape_keys.key_blocks["Yanilla"].mute
 
         genb_mute = target.data.shape_keys.key_blocks["Gen B"].mute
         genc_mute = target.data.shape_keys.key_blocks["Gen C"].mute
@@ -1343,12 +1364,14 @@ class Overview(Panel):
         hip_yab_mute = target.data.shape_keys.key_blocks["Hip Dips (for YAB)"].mute
         hip_rue_mute = target.data.shape_keys.key_blocks["Less Hip Dips (for Rue)"].mute
 
-        melon_depress = True if skull_mute and mini_mute and lava_mute and masc_mute else False
+        melon_depress = True if skull_mute and mini_mute and lava_mute and masc_mute and yanilla_mute else False
         skull_depress = True if not skull_mute else False
         mini_depress = True if not mini_mute else False
         rue_depress = True if not rue_mute else False
         lava_depress = True if not lava_mute else False
         masc_depress = True if not masc_mute else False
+        yanilla_depress = True if not yanilla_mute else False
+        
 
         gena_depress = True if genb_mute and gensfw_mute and genc_mute else False
         genb_depress = True if not genb_mute else False
@@ -1369,21 +1392,25 @@ class Overview(Panel):
         operator.key = "Gen A"
         operator.target = "Legs"
         operator.preset = "gen"
+        operator.desc = "Gen A"
 
         operator = button_row.operator("yakit.apply_shapes", text= "B", depress=genb_depress)
         operator.key = "Gen B"
         operator.target = "Legs"
         operator.preset = "gen"
+        operator.desc = "Gen B"
 
         operator = button_row.operator("yakit.apply_shapes", text= "C", depress=genc_depress)
         operator.key = "Gen C"
         operator.target = "Legs"
         operator.preset = "gen"
+        operator.desc = "Gen C"
 
         operator = button_row.operator("yakit.apply_shapes", text= "SFW", depress=gensfw_depress)
         operator.key = "Gen SFW"
         operator.target = "Legs"
         operator.preset = "gen"
+        operator.desc = "Gen SFW"
         
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
@@ -1394,26 +1421,37 @@ class Overview(Panel):
         operator.key = "Melon"
         operator.target = "Legs"
         operator.preset = "leg_size"
+        operator.desc = "Melon"
 
         operator = button_row.operator("yakit.apply_shapes", text= "Skull", depress=skull_depress)
         operator.key = "Skull"
         operator.target = "Legs"
         operator.preset = "leg_size"
+        operator.desc = "Skull"
+
+        operator = button_row.operator("yakit.apply_shapes", text= "Yanilla", depress=yanilla_depress)
+        operator.key = "Yanilla"
+        operator.target = "Legs"
+        operator.preset = "leg_size"
+        operator.desc = "Yanilla"
 
         operator = button_row.operator("yakit.apply_shapes", text= "Lava", depress=lava_depress)
         operator.key = "Lava"
         operator.target = "Legs"
         operator.preset = "leg_size"
+        operator.desc = "Lava Legs"
 
         operator = button_row.operator("yakit.apply_shapes", text= "Masc", depress=masc_depress)
         operator.key = "Masc"
         operator.target = "Legs"
         operator.preset = "leg_size"
+        operator.desc = "Masc Legs"
 
         operator = button_row.operator("yakit.apply_shapes", text= "Mini", depress=mini_depress)
         operator.key = "Mini"
         operator.target = "Legs"
         operator.preset = "leg_size"
+        operator.desc = "Mini Legs"
 
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
@@ -1424,10 +1462,13 @@ class Overview(Panel):
         operator.key = "Small Butt"
         operator.target = "Legs"
         operator.preset = "other"
+        operator.desc = "Small Butt"
+        
         operator = button_row.operator("yakit.apply_shapes", text= "Soft", depress=soft_depress)
         operator.key = "Soft Butt"
         operator.target = "Legs"
         operator.preset = "other"
+        operator.desc = "Soft Butt"
 
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
@@ -1435,11 +1476,14 @@ class Overview(Panel):
         operator.key = "Alt Hips"
         operator.target = "Legs"
         operator.preset = "other"
+        operator.desc = "Hip Dips"
+
         button_row = split.row(align=True)
         operator = button_row.operator("yakit.apply_shapes", text= "Rue", depress=rue_depress)
         operator.key = "Rue"
         operator.target = "Legs"
         operator.preset = "other"
+        operator.desc = "Rue Legs"
         
         layout.separator(factor=0.1)
 
@@ -1520,11 +1564,13 @@ class Overview(Panel):
         operator.key = "Rue"
         operator.target = "Hands"
         operator.preset = "other"
+        operator.desc = "Rue Hands"
 
         operator = button_row.operator("yakit.apply_shapes", text= "Lava", depress=lava_depress)
         operator.key = "Lavabod"
         operator.target = "Hands"
         operator.preset = "other"
+        operator.desc = "Lava Hands"
 
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
@@ -1541,21 +1587,25 @@ class Overview(Panel):
         operator.key = "Long"
         operator.target = "Hands"
         operator.preset = "nails"
+        operator.desc = "Long"
         
         operator = button_row.operator("yakit.apply_shapes", text= "Short", depress=short_depress)
         operator.key = "Short"
         operator.target = "Hands"
         operator.preset = "nails"
+        operator.desc = "Short"
 
         operator = button_row.operator("yakit.apply_shapes", text= "Ballerina", depress=ballerina_depress)
         operator.key = "Ballerina"
         operator.target = "Hands"
         operator.preset = "nails"
+        operator.desc = "Ballerina"
 
         operator = button_row.operator("yakit.apply_shapes", text= "Stabbies", depress=stabbies_depress)
         operator.key = "Stabbies"
         operator.target = "Hands"
         operator.preset = "nails"
+        operator.desc = "Stabbies"
 
         if not section_prop.shape_mq_other_bool:
             row = layout.row(align=True)
@@ -1567,14 +1617,18 @@ class Overview(Panel):
             operator = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not clawsies_col)
             operator.key = "Clawsies"
             operator.target = "Hands"
+
             operator = button_row.operator("yakit.apply_shapes", text= "Straight", depress=clawsies_depress)
             operator.key = "Curved"
             operator.target = "Hands"
             operator.preset = "other"
+            operator.desc = "Straight"
+
             operator = button_row.operator("yakit.apply_shapes", text= "Curved", depress=not clawsies_depress)
             operator.key = "Curved"
             operator.target = "Hands"
             operator.preset = "other"
+            operator.desc = "Curved"
     
         layout.separator(type="LINE")
 
@@ -1588,10 +1642,12 @@ class Overview(Panel):
             feet_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not feet_col)
             feet_op.target = "Feet"
             feet_op.key = ""
+
         operator = button_row.operator("yakit.apply_shapes", text= "Rue", depress=rue_f_depress)
         operator.key = "Rue"
         operator.target = "Feet"
         operator.preset = "other"
+        operator.desc = "Rue Feet"
 
         if not section_prop.shape_mq_other_bool:
             row = layout.row(align=True)
