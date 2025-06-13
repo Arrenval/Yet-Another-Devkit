@@ -1,9 +1,10 @@
-DEVKIT_VER = (0, 13, 0)
+DEVKIT_VER = (0, 14, 0)
 
 import bpy   
 
-from bpy.props     import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty
-from bpy.types     import Operator, Panel, PropertyGroup, Object, Mesh, Context, UILayout, ShapeKey, Collection, LayerCollection
+from typing    import TYPE_CHECKING, Iterable
+from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty
+from bpy.types import Operator, Panel, PropertyGroup, Object, Mesh, Context, UILayout, ShapeKey, Collection, LayerCollection
 
 devkit_registered: bool = False
 
@@ -15,7 +16,7 @@ def get_object_from_mesh(mesh_name:str) -> Object | None:
 
 def has_shape_keys(obj:Object) -> bool:
         if obj and obj.type == "MESH":
-            if obj.data.shape_keys is not None:
+            if obj.data.shape_keys:
                 return True
         return False
 
@@ -38,15 +39,70 @@ def get_filtered_shape_keys(obj:Mesh, key_filter:list) -> list:
         
         return key_list
 
+class DevkitWindowProps(PropertyGroup):
+    overview_ui: EnumProperty(
+        name= "",
+        description= "Select an overview",
+        items= [
+            ("Body", "Shape", "Body Overview"),
+            ("Shape Keys", "View", "Shape Key Overview"),
+            ("Settings", "Settings", "Devkit Settings"),
+            ("Info", "Info", "Useful info"),
+        ]
+        )  # type: ignore
+    
+    ui_buttons_list = [
+        ("export",   "expand",   "Opens the category"),
+        ("import",   "expand",   "Opens the category"),
+        ("chest",    "shapes",   "Opens the category"),
+        ("leg",      "shapes",   "Opens the category"),
+        ("other",    "shapes",   "Opens the category"),
+        ("chest",    "category", "Opens the category"),
+        ("yas",      "expand",   "Opens the category"),
+        ("export",   "options",  "Opens the category"),
+        ("import",   "options",  "Opens the category"),
+        ("dynamic",  "view",     "Changes between a shape key view that focuses on the main controller in a collection or the active object"),
+        ("force",    "yas",      "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
+        ]
+
+    @staticmethod
+    def ui_buttons() -> None:
+        for (name, category, description) in DevkitWindowProps.ui_buttons_list:
+            category_lower = category.lower()
+            name_lower = name.lower()
+
+            default = False
+            if name_lower == "advanced":
+                default = True
+            
+            prop_name = f"button_{name_lower}_{category_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=default, 
+                )
+            setattr(DevkitWindowProps, prop_name, prop)
+
+    
+    if TYPE_CHECKING:
+        overview_ui: str
+
 class CollectionState(PropertyGroup):
     name: StringProperty() # type: ignore
+    
+    if TYPE_CHECKING:
+        name: str
 
 class ObjectState(PropertyGroup):
     name: StringProperty() # type: ignore
     hide: BoolProperty() # type: ignore
 
-class DevkitProps(PropertyGroup):
+    if TYPE_CHECKING:
+        name: str
+        hide: bool
 
+class DevkitProps(PropertyGroup):
+    
     #       Shapes:         (Name,           Slot/Misc,      Category, Description,                                           Body,             Shape Key)
     ALL_SHAPES = { 
             "Large":        ("Large",        "Chest",        "Large",  "Standard Large",                                      False,               "LARGE"),
@@ -124,20 +180,6 @@ class DevkitProps(PropertyGroup):
 
     is_exporting: bool = False
 
-    ui_buttons_list = [
-    ("export",   "expand",   "Opens the category"),
-    ("import",   "expand",   "Opens the category"),
-    ("chest",    "shapes",   "Opens the category"),
-    ("leg",      "shapes",   "Opens the category"),
-    ("other",    "shapes",   "Opens the category"),
-    ("chest",    "category", "Opens the category"),
-    ("yas",      "expand",   "Opens the category"),
-    ("export",   "options",  "Opens the category"),
-    ("import",   "options",  "Opens the category"),
-    ("dynamic",  "view",     "Changes between a shape key view that focuses on the main controller in a collection or the active object"),
-    ("force",    "yas",      "This force enables YAS on any exported model and appends 'Yiggle' to their file name. Use this if you already exported regular models and want YAS alternatives"),
-    ]
-
     mesh_list = [
         "Torso",
         "Waist",
@@ -156,7 +198,7 @@ class DevkitProps(PropertyGroup):
             ("YAS Legs Gen",       False,   "Toggles Genitalia"),
             ("YAS Mannequin Gen",  False,   "Toggles Genitalia"),
             ]
-        
+    
     @staticmethod
     def shpk_bools() -> None:
         for shape, (name, slot, shape_category, description, body, key) in DevkitProps.ALL_SHAPES.items():
@@ -188,24 +230,6 @@ class DevkitProps(PropertyGroup):
                 name="", 
                 description=description,
                 default=False, 
-                )
-            setattr(DevkitProps, prop_name, prop)
-
-    @staticmethod
-    def ui_buttons() -> None:
-        for (name, category, description) in DevkitProps.ui_buttons_list:
-            category_lower = category.lower()
-            name_lower = name.lower()
-
-            default = False
-            if name_lower == "advanced":
-                default = True
-            
-            prop_name = f"button_{name_lower}_{category_lower}"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=default, 
                 )
             setattr(DevkitProps, prop_name, prop)
 
@@ -386,17 +410,15 @@ class DevkitProps(PropertyGroup):
 
     object_state: CollectionProperty(type=ObjectState) # type: ignore
 
-    overview_ui: EnumProperty(
-        name= "",
-        description= "Select an overview",
-        items= [
-            ("Body", "Shape", "Body Overview"),
-            ("Shape Keys", "View", "Shape Key Overview"),
-            ("Settings", "Settings", "Devkit Settings"),
-            ("Info", "Info", "Useful info"),
-        ]
-        )  # type: ignore
-    
+    if TYPE_CHECKING:
+        chest_shape_enum      : str
+        shape_mq_chest_bool   : bool
+        shape_mq_legs_bool    : bool
+        shape_mq_other_bool   : bool
+        collection_state      : Iterable[CollectionState]
+        object_state          : Iterable[ObjectState]
+        is_exporting          : bool
+
 class CollectionManager(Operator):
     bl_idname = "yakit.collection_manager"
     bl_label = "Export"
@@ -405,7 +427,7 @@ class CollectionManager(Operator):
     preset: StringProperty() # type: ignore
 
     def execute(self, context:Context):
-        self.props             :DevkitProps     = bpy.context.scene.devkit_props
+        self.props             :DevkitProps     = get_devkit_props()
         self.view_layer                         = bpy.context.view_layer.layer_collection
         self.collections_state :CollectionState = self.props.collection_state
         self.object_state      :ObjectState     = self.props.object_state
@@ -581,6 +603,7 @@ class ApplyShapes(Operator):
             return "Applies the selected option"
         
     def execute(self, context):
+        self.props = get_devkit_props()
         apply_mq = self.get_mannequin_category(context)
         apply_target = "torso"
 
@@ -606,16 +629,17 @@ class ApplyShapes(Operator):
             case _:
                 return get_object_from_mesh("Torso").data.shape_keys.key_blocks
 
-    def get_mannequin_category(self, context:Context) -> bool:
+    def get_mannequin_category(self) -> bool:
+        props = get_devkit_props()
         match self.target:   
             case "Legs":
-                return context.scene.devkit_props.shape_mq_legs_bool
+                return props.shape_mq_legs_bool
 
             case "Hands" | "Feet":
-                return context.scene.devkit_props.shape_mq_other_bool
+                return props.shape_mq_other_bool
             
             case _:
-                return context.scene.devkit_props.shape_mq_chest_bool
+                return props.shape_mq_chest_bool
 
     def get_function(self, context:Context, obj, apply_target:str) -> None:
         match self.preset:
@@ -646,7 +670,7 @@ class ApplyShapes(Operator):
                 self.toggle_other(obj, self.key)
             
             case _:
-                size = context.scene.devkit_props.chest_shape_enum
+                size = self.props.chest_shape_enum
                 lava_sizes = ["Lava Omoi", "Teardrop", "Cupcake", "Sugar"]
                 
                 if size in lava_sizes and obj["Lavabod"].mute:
@@ -664,7 +688,7 @@ class ApplyShapes(Operator):
                 self.force_update(apply_target)
 
     def apply_shape_values(apply_target:str, category:str, shape_presets:dict[str, float]) -> None:
-        dev_props = bpy.context.scene.devkit_props
+        dev_props = get_devkit_props()
         for shape_key in shape_presets:
             norm_key = shape_key.lower().replace(" ","").replace("-","")
             category_lower = category.lower()
@@ -680,7 +704,7 @@ class ApplyShapes(Operator):
             
     def reset_shape_values(apply_target:str, category) -> None:
         reset = get_shape_presets(category)
-        dev_props = bpy.context.scene.devkit_props
+        dev_props = get_devkit_props()
 
         for reset_key in reset:
             norm_key = reset_key.lower().replace(" ","").replace("-","")
@@ -940,10 +964,10 @@ class ResetQueue(Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context.scene, "file_props")
+        return hasattr(context.scene, "ya_file_props")
 
     def execute(self, context):
-        bpy.context.scene.file_props.export_total = 0
+        bpy.context.scene.ya_file_props.export_total = 0
         return {'FINISHED'}
         
 class PanelCategory(Operator):
@@ -957,30 +981,31 @@ class PanelCategory(Operator):
     def execute(self, context):
         match self.panel:
             case "overview":
-                context.scene.devkit_props.overview_ui = self.overview
+                get_window_props().overview_ui = self.overview
         return {'FINISHED'}
 
 class Overview(Panel):
     bl_idname = "VIEW3D_PT_YA_Overview"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "Devkit"
-    bl_label = "Yet Another Overview"
+    bl_category = "XIV Kit"
+    bl_label = "Devkit"
     bl_order = 0
 
     def draw(self, context):
-        mq = get_object_from_mesh("Mannequin")
-        torso = get_object_from_mesh("Torso")
-        legs = get_object_from_mesh("Waist")
-        hands = get_object_from_mesh("Hands")
-        feet = get_object_from_mesh("Feet")
+        self.props  = get_devkit_props()
+        self.window = get_window_props()
 
-        obj = self.collection_context(context)
-        key = obj.data.shape_keys
-        layout = self.layout
+        mq    = get_object_from_mesh("Mannequin")
+        torso = get_object_from_mesh("Torso")
+        legs  = get_object_from_mesh("Waist")
+        hands = get_object_from_mesh("Hands")
+        feet  = get_object_from_mesh("Feet")
+
+        obj        = self.collection_context(context)
+        key        = obj.data.shape_keys
+        layout     = self.layout
         label_name = obj.name
-        scene = context.scene
-        section_prop = scene.devkit_props
 
         options ={
             "Body": "OUTLINER_OB_ARMATURE",
@@ -992,22 +1017,22 @@ class Overview(Panel):
         box = layout.box()
         row = box.row(align=True)
         
-        row.label(icon=options[section_prop.overview_ui])
-        row.label(text=f"  {section_prop.overview_ui}")
+        row.label(icon=options[self.window.overview_ui])
+        row.label(text=f"  {self.window.overview_ui}")
         button_row = row.row(align=True)
         
-        self.ui_category_buttons(button_row, section_prop, "overview_ui", options, "overview")
+        self.ui_category_buttons(button_row, "overview_ui", options, "overview")
         
         layout.separator(factor=1, type="LINE")
 
         # SHAPE MENUS
         
-        if section_prop.overview_ui == "Shape Keys":
+        if self.window.overview_ui == "Shape Keys":
             box = layout.box()
             row = box.row(align=True)
             row.label(text=f"{label_name}:")
-            text = "Collection" if section_prop.button_dynamic_view else "Active"
-            row.prop(section_prop, "button_dynamic_view", text=text, icon="HIDE_OFF")
+            text = "Collection" if self.window.button_dynamic_view else "Active"
+            row.prop(self.window, "button_dynamic_view", text=text, icon="HIDE_OFF")
           
             row = layout.row()
             row.template_list(
@@ -1021,18 +1046,18 @@ class Overview(Panel):
         
         # BODY
         
-        if section_prop.overview_ui == "Body":
+        if self.window.overview_ui == "Body":
             
             # CHEST
 
-            button = section_prop.button_chest_shapes
+            button = self.window.button_chest_shapes
             chest_col = bpy.context.view_layer.layer_collection.children["Chest"].exclude
 
             box = layout.box()
             row = box.row(align=True)
             
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-            row.prop(section_prop, "button_chest_shapes", text="", icon=icon, emboss=False)
+            row.prop(self.window, "button_chest_shapes", text="", icon=icon, emboss=False)
             row.label(text="Chest")
             
             button_row = row.row(align=True)
@@ -1040,22 +1065,22 @@ class Overview(Panel):
             chest_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not chest_col)
             chest_op.target = "Chest"
             chest_op.key = ""
-            button_row.prop(section_prop, "shape_mq_chest_bool", text="", icon="ARMATURE_DATA")
+            button_row.prop(self.props, "shape_mq_chest_bool", text="", icon="ARMATURE_DATA")
             
 
             if button:
-                self.chest_shapes(layout, section_prop, mq, torso)
+                self.chest_shapes(layout, mq, torso)
 
             # LEGS
 
-            button = section_prop.button_leg_shapes
+            button = self.window.button_leg_shapes
             leg_col = bpy.context.view_layer.layer_collection.children["Legs"].exclude
 
             box = layout.box()
             row = box.row(align=True)
             
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-            row.prop(section_prop, "button_leg_shapes", text="", icon=icon, emboss=False)
+            row.prop(self.window, "button_leg_shapes", text="", icon=icon, emboss=False)
             row.label(text="Legs")
             
             button_row = row.row(align=True)
@@ -1063,48 +1088,48 @@ class Overview(Panel):
             leg_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not leg_col)
             leg_op.target = "Legs"
             leg_op.key = ""
-            button_row.prop(section_prop, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
+            button_row.prop(self.props, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
 
             if button:
-                self.leg_shapes(layout, section_prop, mq, legs)
+                self.leg_shapes(layout, mq, legs)
             
             # OTHER
 
-            button = section_prop.button_other_shapes
+            button = self.window.button_other_shapes
 
             box = layout.box()
             row = box.row(align=True)
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-            row.prop(section_prop, "button_other_shapes", text="", icon=icon, emboss=False)
+            row.prop(self.window, "button_other_shapes", text="", icon=icon, emboss=False)
             row.label(text="Hands/Feet")
             
             button_row = row.row(align=True)
-            button_row.prop(section_prop, "shape_mq_other_bool", text="", icon="ARMATURE_DATA")
+            button_row.prop(self.props, "shape_mq_other_bool", text="", icon="ARMATURE_DATA")
 
             if button:
-                self.other_shapes(layout, section_prop, mq, hands, feet)
+                self.other_shapes(layout, mq, hands, feet)
 
         # YAS MENU
-        if (section_prop.overview_ui == "Body" or section_prop.overview_ui == "Shape Keys") and hasattr(section_prop, "controller_yas_chest"):
-            button = section_prop.button_yas_expand                          
+        if (self.window.overview_ui == "Body" or self.window.overview_ui == "Shape Keys") and hasattr(self.props, "controller_yas_chest"):
+            button = self.window.button_yas_expand                          
 
             box = layout.box()
             row = box.row(align=True)
             row.alignment = 'LEFT'
             
             icon = 'TRIA_DOWN' if button else 'TRIA_RIGHT'
-            row.prop(section_prop, "button_yas_expand", text="", icon=icon, emboss=False)
+            row.prop(self.window, "button_yas_expand", text="", icon=icon, emboss=False)
             row.label(text="Yet Another Skeleton")
 
             if button:
-                self.yas_menu(layout, section_prop)
+                self.yas_menu(layout)
 
         # SETTINGS
 
-        if section_prop.overview_ui == "Settings":
+        if self.window.overview_ui == "Settings":
             row = layout.row(align=True)
             row.alignment = "CENTER"
-            row.prop(section_prop, "controller_triangulation", text="Triangulation")
+            row.prop(self.props, "controller_triangulation", text="Triangulation")
             row = layout.row(align=True)
             row.alignment = "CENTER"
             col = row.column(align=True)
@@ -1121,7 +1146,7 @@ class Overview(Panel):
         
         #INFO
 
-        if section_prop.overview_ui == "Info":
+        if self.window.overview_ui == "Info":
             box = layout.box()
             row = box.row(align=True)
             row.alignment = "CENTER"
@@ -1138,7 +1163,7 @@ class Overview(Panel):
             col.operator("wm.url_open", text="Heliosphere").url = "https://heliosphere.app/user/Aleks"
             col.operator("wm.url_open", text="XMA").url = "https://www.xivmodarchive.com/user/26481"
 
-        if section_prop.overview_ui == "Info" or section_prop.overview_ui == "Settings":
+        if self.window.overview_ui == "Info" or self.window.overview_ui == "Settings":
             row = layout.row(align=True)
             col = row.column(align=True)
             col.alignment = "CENTER"
@@ -1165,7 +1190,7 @@ class Overview(Panel):
         active_obj = bpy.context.active_object
 
         if active_obj and has_shape_keys(active_obj):
-            if not context.scene.devkit_props.button_dynamic_view:
+            if not self.window.button_dynamic_view:
                 return active_obj
             else:
                 active_collection = active_obj.users_collection
@@ -1176,9 +1201,9 @@ class Overview(Panel):
         else:
             return get_object_from_mesh("Mannequin")
 
-    def chest_shapes(self, layout:UILayout, section_prop, mq:Object, torso:Object):
+    def chest_shapes(self, layout: UILayout, mq: Object, torso: Object):
         layout.separator(factor=0.1)  
-        if section_prop.shape_mq_chest_bool:
+        if self.props.shape_mq_chest_bool:
             target = mq
             key_target = "mq"
         else:
@@ -1282,44 +1307,44 @@ class Overview(Panel):
 
             if large_depress:
                 col2 = split.column(align=True)
-                col2.prop(section_prop, f"key_squeeze_large_{key_target}")
-                col2.prop(section_prop, f"key_squish_large_{key_target}")
-                col2.prop(section_prop, f"key_pushup_large_{key_target}")
+                col2.prop(self.props, f"key_squeeze_large_{key_target}")
+                col2.prop(self.props, f"key_squish_large_{key_target}")
+                col2.prop(self.props, f"key_pushup_large_{key_target}")
                 if not lava_depress:
-                    col2.prop(section_prop, f"key_omoi_large_{key_target}")
-                col2.prop(section_prop, f"key_sag_omoi_{key_target}")
+                    col2.prop(self.props, f"key_omoi_large_{key_target}")
+                col2.prop(self.props, f"key_sag_omoi_{key_target}")
                 if not lava_depress:
-                    col2.prop(section_prop, f"key_uranusredux_large_{key_target}")
-                    col2.prop(section_prop, f"key_nipnops_large_{key_target}")
+                    col2.prop(self.props, f"key_uranusredux_large_{key_target}")
+                    col2.prop(self.props, f"key_nipnops_large_{key_target}")
                 else:
-                    col2.prop(section_prop, f"key_softnips_lavabod_{key_target}")
+                    col2.prop(self.props, f"key_softnips_lavabod_{key_target}")
             elif medium_depress:
                 col2 = split.column(align=True)
-                col2.prop(section_prop, f"key_squeeze_medium_{key_target}")
-                col2.prop(section_prop, f"key_squish_medium_{key_target}")
-                col2.prop(section_prop, f"key_pushup_medium_{key_target}")
+                col2.prop(self.props, f"key_squeeze_medium_{key_target}")
+                col2.prop(self.props, f"key_squish_medium_{key_target}")
+                col2.prop(self.props, f"key_pushup_medium_{key_target}")
                 if not lava_depress:
-                    col2.prop(section_prop, f"key_sayonara_medium_{key_target}")
-                    col2.prop(section_prop, f"key_mini_medium_{key_target}")
-                col2.prop(section_prop, f"key_sag_medium_{key_target}")
+                    col2.prop(self.props, f"key_sayonara_medium_{key_target}")
+                    col2.prop(self.props, f"key_mini_medium_{key_target}")
+                col2.prop(self.props, f"key_sag_medium_{key_target}")
                 if not lava_depress:
-                    col2.prop(section_prop, f"key_nipnops_medium_{key_target}")
+                    col2.prop(self.props, f"key_nipnops_medium_{key_target}")
                 else:
-                    col2.prop(section_prop, f"key_softnips_teardrop_{key_target}")
+                    col2.prop(self.props, f"key_softnips_teardrop_{key_target}")
 
             elif small_depress:
                 col2 = split.column(align=True)
-                col2.prop(section_prop, f"key_squeeze_small_{key_target}")
+                col2.prop(self.props, f"key_squeeze_small_{key_target}")
                 if not lava_depress:
-                    col2.prop(section_prop, f"key_nipnops_small_{key_target}")
+                    col2.prop(self.props, f"key_nipnops_small_{key_target}")
                 else:
-                    col2.prop(section_prop, f"key_sugar_cupcake_{key_target}")
-                    col2.prop(section_prop, f"key_softnips_cupcake_{key_target}")
+                    col2.prop(self.props, f"key_sugar_cupcake_{key_target}")
+                    col2.prop(self.props, f"key_softnips_cupcake_{key_target}")
             
             elif masc_depress:
                 col2 = split.column(align=True)
-                col2.prop(section_prop, f"key_pecs_masc_{key_target}")
-                col2.prop(section_prop, f"key_nipnops_masc_{key_target}")
+                col2.prop(self.props, f"key_pecs_masc_{key_target}")
+                col2.prop(self.props, f"key_nipnops_masc_{key_target}")
      
         
         layout.separator(factor=0.1)
@@ -1331,7 +1356,7 @@ class Overview(Panel):
         col.label(text="Preset:")
         
         col2 = split.column(align=True)
-        col2.prop(section_prop, "chest_shape_enum")
+        col2.prop(self.props, "chest_shape_enum")
 
         col3 = split.column(align=True)
         operator = col3.operator("yakit.apply_shapes", text= "Apply")
@@ -1340,9 +1365,9 @@ class Overview(Panel):
 
         layout.separator(factor=0.1)
 
-    def leg_shapes(self, layout:UILayout, section_prop, mq:Object, legs:Object):
+    def leg_shapes(self, layout: UILayout, mq: Object, legs: Object):
         layout.separator(factor=0.1)
-        if section_prop.shape_mq_legs_bool:
+        if self.props.shape_mq_legs_bool:
             target = mq
         else:
             target = legs
@@ -1487,37 +1512,37 @@ class Overview(Panel):
         
         layout.separator(factor=0.1)
 
-    def yas_menu(self, layout:UILayout, section_prop):
+    def yas_menu(self, layout: UILayout):
         layout.separator(factor=0.1)
         row = layout.row(align=True)
-        icon = 'CHECKMARK' if section_prop.controller_yas_chest else 'PANEL_CLOSE'
-        row.prop(section_prop, "controller_yas_chest", text="Chest", icon=icon)
-        icon = 'CHECKMARK' if section_prop.controller_yas_hands else 'PANEL_CLOSE'
-        row.prop(section_prop, "controller_yas_hands", text="Hands", icon=icon)
-        icon = 'CHECKMARK' if section_prop.controller_yas_feet else 'PANEL_CLOSE'
-        row.prop(section_prop, "controller_yas_feet", text="Feet", icon=icon)
+        icon = 'CHECKMARK' if self.props.controller_yas_chest else 'PANEL_CLOSE'
+        row.prop(self.props, "controller_yas_chest", text="Chest", icon=icon)
+        icon = 'CHECKMARK' if self.props.controller_yas_hands else 'PANEL_CLOSE'
+        row.prop(self.props, "controller_yas_hands", text="Hands", icon=icon)
+        icon = 'CHECKMARK' if self.props.controller_yas_feet else 'PANEL_CLOSE'
+        row.prop(self.props, "controller_yas_feet", text="Feet", icon=icon)
 
         layout.separator(factor=0.5,type="LINE")
 
         row = layout.row(align=True)
         col2 = row.column(align=True)
         col2.label(text="Legs:")
-        icon = 'CHECKMARK' if section_prop.controller_yas_legs else 'PANEL_CLOSE'
-        col2.prop(section_prop, "controller_yas_legs", text="YAS", icon=icon)
-        icon = 'CHECKMARK' if section_prop.controller_yas_legs_gen else 'PANEL_CLOSE'
-        col2.prop(section_prop, "controller_yas_legs_gen", text="Genitalia", icon=icon)
+        icon = 'CHECKMARK' if self.props.controller_yas_legs else 'PANEL_CLOSE'
+        col2.prop(self.props, "controller_yas_legs", text="YAS", icon=icon)
+        icon = 'CHECKMARK' if self.props.controller_yas_legs_gen else 'PANEL_CLOSE'
+        col2.prop(self.props, "controller_yas_legs_gen", text="Genitalia", icon=icon)
 
         col = row.column(align=True)
         col.label(text="Mannequin:")
-        icon = 'CHECKMARK' if section_prop.controller_yas_mannequin else 'PANEL_CLOSE'
-        col.prop(section_prop, "controller_yas_mannequin", text="YAS", icon=icon)
-        icon = 'CHECKMARK' if section_prop.controller_yas_mannequin_gen else 'PANEL_CLOSE'
-        col.prop(section_prop, "controller_yas_mannequin_gen", text="Genitalia", icon=icon) 
+        icon = 'CHECKMARK' if self.props.controller_yas_mannequin else 'PANEL_CLOSE'
+        col.prop(self.props, "controller_yas_mannequin", text="YAS", icon=icon)
+        icon = 'CHECKMARK' if self.props.controller_yas_mannequin_gen else 'PANEL_CLOSE'
+        col.prop(self.props, "controller_yas_mannequin_gen", text="Genitalia", icon=icon) 
 
         layout.separator(factor=0.1)
 
-    def other_shapes(self, layout:UILayout, section_prop, mq:Object, hands:Object, feet:Object):
-        if section_prop.shape_mq_other_bool:
+    def other_shapes(self, layout: UILayout, mq: Object, hands: Object, feet: Object):
+        if self.props.shape_mq_other_bool:
                         target = mq
                         target_f = mq
                         key_target = "mq"
@@ -1554,7 +1579,7 @@ class Overview(Panel):
         split.alignment = "RIGHT"
         split.label(text="Hands:")
         button_row = split.row(align=True)
-        if not section_prop.shape_mq_other_bool:
+        if not self.props.shape_mq_other_bool:
             icon = "HIDE_ON" if hands_col else "HIDE_OFF"
             hands_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not hands_col)
             hands_op.target = "Hands"
@@ -1577,7 +1602,7 @@ class Overview(Panel):
         split.alignment = "RIGHT"
         split.label(text="Nails:")
         button_row = split.row(align=True)
-        if not section_prop.shape_mq_other_bool:
+        if not self.props.shape_mq_other_bool:
             icon = "HIDE_ON" if nails_col else "HIDE_OFF"
             operator = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not nails_col)
             operator.key = "Nails"
@@ -1607,7 +1632,7 @@ class Overview(Panel):
         operator.preset = "nails"
         operator.desc = "Stabbies"
 
-        if not section_prop.shape_mq_other_bool:
+        if not self.props.shape_mq_other_bool:
             row = layout.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
@@ -1637,7 +1662,7 @@ class Overview(Panel):
         split.alignment = "RIGHT"
         split.label(text="Feet:")
         button_row = split.row(align=True)
-        if not section_prop.shape_mq_other_bool:
+        if not self.props.shape_mq_other_bool:
             icon = "HIDE_ON" if feet_col else "HIDE_OFF"
             feet_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not feet_col)
             feet_op.target = "Feet"
@@ -1649,7 +1674,7 @@ class Overview(Panel):
         operator.preset = "other"
         operator.desc = "Rue Feet"
 
-        if not section_prop.shape_mq_other_bool:
+        if not self.props.shape_mq_other_bool:
             row = layout.row(align=True)
             col = row.column(align=True)
             row = col.row(align=True)
@@ -1675,15 +1700,15 @@ class Overview(Panel):
         col.label(text="Mini Heels:")
         
         col2 = split.column(align=True)
-        col2.prop(section_prop, f"key_heels_{key_target}")
-        col2.prop(section_prop, f"key_cinderella_{key_target}")
-        col2.prop(section_prop, f"key_miniheels_{key_target}")
+        col2.prop(self.props, f"key_heels_{key_target}")
+        col2.prop(self.props, f"key_cinderella_{key_target}")
+        col2.prop(self.props, f"key_miniheels_{key_target}")
 
         layout.separator(factor=0.1)
    
-    def ui_category_buttons(self, layout:UILayout, section_prop, prop, options, panel:str):
+    def ui_category_buttons(self, layout:UILayout, prop, options, panel:str):
         row = layout
-        ui_selector = getattr(section_prop, prop)
+        ui_selector = getattr(self.window, prop)
 
         for slot, icon in options.items():
             depress = True if ui_selector == slot else False
@@ -1694,6 +1719,7 @@ class Overview(Panel):
 CLASSES = [
     CollectionState,
     ObjectState,
+    DevkitWindowProps,
     DevkitProps,
     CollectionManager,
     ApplyShapes,
@@ -1703,6 +1729,7 @@ CLASSES = [
     PanelCategory,
     Overview
 ]
+
 
 def delayed_setup(dummy=None) -> None:
     global devkit_registered  
@@ -1720,7 +1747,7 @@ def delayed_setup(dummy=None) -> None:
         with context.temp_override(area=area, space=view3d):
             view3d.show_region_ui = True
             region = [region for region in area.regions if region.type == 'UI'][0]
-            region.active_panel_category = 'Devkit'
+            region.active_panel_category = 'XIV Kit'
     except:
         pass
     
@@ -1736,15 +1763,11 @@ def cleanup_props(dummy=None) -> None:
             continue
     
     try:
-        del bpy.types.Scene.devkit_props
+        del bpy.types.Scene.ya_devkit_props
     except:
         pass
     try:
-        del bpy.types.Scene.collection_state
-    except:
-        pass
-    try:
-        del bpy.types.Scene.object_state
+        del bpy.types.WindowManager.ya_devkit_window
     except:
         pass
     
@@ -1752,17 +1775,20 @@ def cleanup_props(dummy=None) -> None:
     bpy.app.handlers.load_pre.remove(cleanup_props)
     devkit_registered = False
 
+def get_devkit_props() -> DevkitProps:
+    return bpy.context.scene.ya_devkit_props
+
+def get_window_props() -> DevkitWindowProps:
+    return bpy.context.window_manager.ya_devkit_window
+
 def set_devkit_properties() -> None:
-    bpy.types.Scene.devkit_props = PointerProperty(
+    bpy.types.Scene.ya_devkit_props = PointerProperty(
         type=DevkitProps)
     
-    bpy.types.Scene.collection_state = bpy.props.CollectionProperty(
-        type=CollectionState)
-    
-    bpy.types.Scene.object_state = bpy.props.CollectionProperty(
-        type=ObjectState)
+    bpy.types.WindowManager.ya_devkit_window = PointerProperty(
+        type=DevkitWindowProps)
 
-    DevkitProps.ui_buttons()
+    DevkitWindowProps.ui_buttons()
     DevkitProps.shpk_bools()
     DevkitProps.export_bools()
  
