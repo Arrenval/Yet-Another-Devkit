@@ -40,12 +40,6 @@ def get_object_from_mesh(mesh_name:str) -> Object | None:
 
     return controllers[mesh_name]
 
-def has_shape_keys(obj:Object) -> bool:
-        if obj and obj.type == "MESH":
-            if obj.data.shape_keys:
-                return True
-        return False
-
 def get_filtered_shape_keys(obj:Mesh, key_filter:list) -> list:
         shape_keys = obj.shape_keys.key_blocks
         key_list = []
