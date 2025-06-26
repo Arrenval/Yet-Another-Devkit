@@ -964,6 +964,15 @@ class Overview(Panel):
     bl_order = 0
 
     def draw(self, context):
+        global devkit_registered
+        layout = self.layout
+
+        if not devkit_registered:
+            row = layout.row(align=True)
+            row.alignment = "CENTER"
+            row.label(text="Devkit is setting up...", icon="INFO")
+            return
+        
         self.props  = get_devkit_props()
         self.window = get_window_props()
 
