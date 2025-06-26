@@ -1715,6 +1715,7 @@ def delayed_setup(dummy=None) -> None:
     context = bpy.context
     link_tri_modifier()
     assign_controller_meshes()
+    DevkitWindowProps.shpk_bools()
 
     try:
         area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
@@ -1763,11 +1764,13 @@ def set_devkit_properties() -> None:
     
     bpy.types.WindowManager.ya_devkit_window = PointerProperty(
         type=DevkitWindowProps)
+    
+    bpy.types.Scene.ya_devkit_ver = (0, 15, 0)
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
  
-def register():
+def register() -> None:
 
     for cls in CLASSES:
         bpy.utils.register_class(cls)
@@ -1776,7 +1779,34 @@ def register():
 
     bpy.app.timers.register(delayed_setup, first_interval=1)
     bpy.app.handlers.load_post.append(delayed_setup)
-    bpy.app.handlers.load_pre.append(cleanup_props)
+    bpy.app.handlers.load_post.append(cleanup_props)
+
+def unregister() -> None:
+    global devkit_registered  
+    for cls in reversed(CLASSES):
+        try:
+            bpy.utils.unregister_class(cls)
+        except:
+            continue
+    
+    try:
+        del bpy.types.Scene.ya_devkit_props
+    except:
+        pass
+
+    try:
+        del bpy.types.WindowManager.ya_devkit_window
+    except:
+        pass
+
+    try:
+        del bpy.types.Scene.ya_devkit_ver
+    except:
+        pass
+    
+    bpy.app.handlers.load_post.remove(delayed_setup)
+    bpy.app.handlers.load_pre.remove(cleanup_props)
+    devkit_registered = False
 
 if __name__ == "__main__":
     register()
