@@ -59,6 +59,261 @@ def get_filtered_shape_keys(obj:Mesh, key_filter:list) -> list:
         
         return key_list
 
+def create_driver(target: Driver, prop:str, path_vars: list[tuple[str, str]], expression: str):
+    try:
+        target.driver_remove(prop)
+    except:
+        pass
+    
+    # Create new driver
+    driver = target.driver_add(prop).driver
+    driver.type = "SCRIPTED" 
+    driver.expression = expression
+    
+    # Add variable for the control property
+    for var_name, data_path in path_vars:
+        var = driver.variables.new()
+        var.name = var_name
+        var.type = "SINGLE_PROP"
+        var.targets[0].id_type = "SCENE"
+        var.targets[0].id = bpy.context.scene
+        var.targets[0].data_path = data_path
+
+
+class AssignControllers(Operator):
+    bl_idname = "yakit.assign_controllers"
+    bl_label = "Assign Controller Meshes"
+    bl_description = "Automatically find and assign controller meshes"
+    
+    def execute(self, context):
+        assign_controller_meshes()
+        self.report({'INFO'}, "Controller meshes updated!")
+        return {'FINISHED'}
+
+class ModelDrivers():
+
+    def __init__(self):
+        self.props = get_devkit_props()
+        self.data_path = "ya_devkit_props"
+
+        self.torso_drivers()
+        self.torso_drivers(mq=True)
+
+        self.leg_drivers()
+        self.leg_drivers(mq=True)
+
+    def torso_drivers(self, mq=False) -> None:
+        if mq:
+            obj     = self.props.yam_mannequin
+            obj_str = "mannequin_state.torso"
+        else:
+            obj     = self.props.yam_torso
+            obj_str = "torso_state"
+
+        target_keys = obj.data.shape_keys.key_blocks
+        obj_str     = "torso_state"
+        chest_path  = self._get_data_path(obj_str, "chest_size")
+        lava_path   = self._get_data_path(obj_str, "lavabod")
+
+        chest_keys = {
+            "LARGE":  0,
+            "MEDIUM": 1, 
+            "SMALL":  2,
+            "MASC":   3
+        }
+        option_keys = ["Buff", "Rue", "Lavabod"]
+        lava_keys   = ["- Soft Nips", "-- Soft Nips", "-- Teardrop", "--- Soft Nips", "--- Cupcake"]
+
+        var_paths  = [("size", chest_path)]
+
+        for size, value in chest_keys.items():
+            expression = f"size == {value}"
+            if size in ("SMALL", "MEDIUM"):
+                expression = f"size == {value} and lava == 0"
+                var_paths.append(("lava", lava_path))
+
+            target = target_keys[size]
+            create_driver(
+                target, 
+                "value", 
+                var_paths,
+                expression)
+
+            for sub_key in target_keys:
+                if sub_key.name.startswith("-" * (value + 1)):
+                    target = sub_key
+                    expression = f"size != {value}"
+                    create_driver(
+                        target, 
+                        "mute", 
+                        [("size", chest_path)], 
+                        expression)
+
+        for key in option_keys:
+            target = target_keys[key]
+            expression = f"option == 1"
+            create_driver(
+                target, 
+                "value", 
+                [("option", self._get_data_path(obj_str, key.lower()))], 
+                expression)
+
+        for key in lava_keys:
+            count = key.count("-")
+            if key in ("-- Teardrop", "--- Cupcake"):
+                prop = "value"
+                expression = f"lava == 1 and size == {count - 1}"
+            else:
+                prop = "mute"
+                expression = f"lava == 0 and size != {count - 1}"
+            target = target_keys[key]
+            
+            create_driver(
+                target, 
+                prop, 
+                [("lava", lava_path), 
+                ("size", chest_path)], 
+                expression
+                )
+            
+            create_driver(
+                target_keys["Rue/Buff"],
+                "value",
+                [("buff", self._get_data_path(obj_str, "buff")), 
+                ("rue", self._get_data_path(obj_str, "rue"))],
+                "buff == 1 and rue == 1"
+            )
+
+            create_driver(
+                target_keys["Rue/Lava"],
+                "value",
+                [("lava", lava_path), 
+                ("rue", self._get_data_path(obj_str, "rue"))],
+                "lava == 1 and rue == 1"
+            )
+
+    def leg_drivers(self, mq=False) -> None:
+        if mq:
+            obj      = self.props.yam_mannequin
+            obj_str  = "mannequin_state.legs"
+            base_key = "LARGE"
+        else:
+            obj      = self.props.yam_legs
+            obj_str  = "leg_state"
+            base_key = "Gen A/Watermelon Crushers"
+
+        target_keys = obj.data.shape_keys.key_blocks
+        legs_path   = self._get_data_path(obj_str, "legs")
+        gen_path    = self._get_data_path(obj_str, "gen")
+        hip_path    = self._get_data_path(obj_str, "alt_hips")
+        rue_path    = self._get_data_path(obj_str, "rue")
+
+        gen_keys = {
+            0: base_key, 
+            1: "Gen B", 
+            2: "Gen C", 
+            3: "Gen SFW",
+        }
+
+        for value, key in gen_keys.items():
+            target = target_keys[key]
+            expression = f"gen == {value}"
+
+            create_driver(
+                target,
+                "value",
+                [("gen", gen_path)],
+                expression
+                )
+        
+        leg_keys = {
+            0: base_key, 
+            1: "Skull Crushers", 
+            2: "Yanilla",
+            3: "Masc", 
+            4: "Lavabod",
+            5: "Mini", 
+        }
+
+        for value, key in leg_keys.items():
+            target = target_keys[key]
+            expression = f"legs == {value}"
+
+            create_driver(
+                target,
+                "value",
+                [("legs", legs_path)],
+                expression
+                )
+            
+        option_keys = ["Rue", "Small Butt", "Soft Butt", "Alt Hips"]
+        for key in option_keys:
+            target = target_keys[key]
+            var = key.lower().replace(" ", "_")
+            expression = f"{var} == 1"
+
+            create_driver(
+                target,
+                "value",
+                [(var, self._get_data_path(obj_str, var))],
+                expression
+                )
+        
+        squish_keys = {
+            0: base_key,  
+            1: "Squish", 
+            2: "Squimsh", 
+        }
+
+        for value, key in squish_keys.items():
+            target = target_keys[key]
+            expression = f"squish == {value}"
+
+            create_driver(
+                target,
+                "value",
+                [("squish", self._get_data_path(obj_str, "squish"))],
+                expression
+            )
+
+        create_driver(
+            target_keys["Hip Dips (for YAB)"],
+            "value",
+            [("legs", legs_path), 
+            ("alt_hips", hip_path),
+            ("rue", rue_path)],
+            "legs <= 2 and alt_hips == 1 and rue == 0"
+            )
+        
+        create_driver(
+            target_keys["Less Hip Dips (for Rue)"],
+            "value",
+            [("legs", legs_path), 
+            ("alt_hips", hip_path),
+            ("rue", rue_path)],
+            "legs <= 2 and alt_hips == 1 and rue == 1"
+            )
+        
+        create_driver(
+            target_keys["Rue/Mini"],
+            "value",
+            [("legs", legs_path), 
+            ("rue", rue_path)],
+            "legs == 5 and rue == 1"
+            )
+        
+        create_driver(
+            target_keys["Rue/Lava"],
+            "value",
+            [("legs", legs_path), 
+            ("rue", rue_path)],
+            "legs == 4 and rue == 1"
+            )
+
+    def _get_data_path(self, obj_str: str, prop: str) -> str:
+        return f"{self.data_path}.{obj_str}.{prop}"
+    
+
 class DevkitWindowProps(PropertyGroup):
     overview_ui: EnumProperty(
         name= "",
@@ -1708,6 +1963,7 @@ def delayed_setup(dummy=None) -> None:
     context = bpy.context
     link_tri_modifier()
     assign_controller_meshes()
+    ModelDrivers()
     DevkitWindowProps.shpk_bools()
 
     try:
