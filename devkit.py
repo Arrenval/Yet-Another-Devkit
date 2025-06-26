@@ -1,10 +1,8 @@
-DEVKIT_VER = (0, 15, 0)
-
 import bpy   
 
 from typing    import TYPE_CHECKING, Iterable
 from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty
-from bpy.types import Operator, Panel, PropertyGroup, Object, Mesh, Context, UILayout, ShapeKey, Collection, LayerCollection
+from bpy.types import Operator, Panel, PropertyGroup, Object, Mesh, Context, UILayout, ShapeKey, Collection, LayerCollection, Driver
 
 devkit_registered: bool = False
 
@@ -1180,6 +1178,7 @@ class Overview(Panel):
             col.operator("wm.url_open", text="XMA").url = "https://www.xivmodarchive.com/user/26481"
 
         if self.window.overview_ui == "Info" or self.window.overview_ui == "Settings":
+            devkit_ver = context.scene.ya_devkit_ver 
             row = layout.row(align=True)
             col = row.column(align=True)
             col.alignment = "CENTER"
@@ -1191,7 +1190,7 @@ class Overview(Panel):
             else: row.label(text=f"Addon Not Installed")
             row = col.row(align=True)
             row.alignment = "CENTER"
-            row.label(text=f"Devkit Script Ver: {DEVKIT_VER[0]}.{DEVKIT_VER[1]}.{DEVKIT_VER[2]}")
+            row.label(text=f"Devkit Script Ver: {'.'.join(map(str, devkit_ver))}")
                        
     def collection_context(self, context:Context) -> Object | None:
         # Links mesh name to the standard collections)
