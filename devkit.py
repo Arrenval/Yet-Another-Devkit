@@ -112,6 +112,7 @@ class DevkitWindowProps(PropertyGroup):
 
     @staticmethod
     def export_bools() -> None:
+        """These are used in Yet Another Addon's batch export menu to very which shapes are available in the current kit."""
         for shape, (name, slot, shape_category, description, body, key) in DevkitProps.ALL_SHAPES.items():
             slot_lower = slot.lower().replace("/", " ")
             name_lower = name.lower().replace(" ", "_")
@@ -123,6 +124,27 @@ class DevkitWindowProps(PropertyGroup):
                 default=False, 
                 )
             setattr(DevkitWindowProps, prop_name, prop)
+
+    @staticmethod
+    def shpk_bools() -> None:
+        """These are used in Yet Another Addon's shape key menu to very which shapes are available in the current kit."""
+        for shape, (name, slot, shape_category, description, body, key) in DevkitProps.ALL_SHAPES.items():
+            if key == "":
+                continue
+            if slot == "Hands" or slot == "Feet":
+                continue
+            if shape_category == "Vagina":
+                continue
+            slot_lower = slot.lower().replace("/", " ")
+            key_lower = key.lower().replace(" ", "_")
+
+            prop_name = f"shpk_{slot_lower}_{key_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=False,
+                )
+            setattr(DevkitProps, prop_name, prop)
 
     devkit_triangulation: BoolProperty(
         default=True,
