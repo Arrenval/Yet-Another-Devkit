@@ -6,7 +6,7 @@ A more extensive overview of the features can be found [here](https://docs.googl
 You'll find the UI panel "Devkit" in the "XIV Kit" tab in the 3D Viewport.
 
 ## Installing
-This script comes bundled with the compatible devkits. Generally you can update the script after patch updates, but don't do so unless instructed.
+This script comes bundled with its compatible devkit. Generally, you can update the script after patch updates, but it's not recommended to do so unless instructed.
 
 ## Licensing
 
