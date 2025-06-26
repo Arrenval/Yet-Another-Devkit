@@ -417,6 +417,172 @@ class ObjectState(PropertyGroup):
         name: str
         hide: bool
 
+class TorsoState(PropertyGroup):
+    chest_size: EnumProperty(
+        name="",
+        description="Choose a chest size",
+        default="0",
+        items=[
+            ("0", "Large", "Standard Large"),
+            ("1", "Medium", "Standard Medium"),
+            ("2", "Small", "Standard Small"),
+            ("3", "Masc", "Yet Another Masc"),
+        ]
+        ) # type: ignore
+
+    buff: BoolProperty(
+        name="",
+        description="Adds muscle",
+        default=False,
+    ) # type: ignore
+
+    rue: BoolProperty(
+        name="",
+        description="Adds tummy",
+        default=False,
+    ) # type: ignore
+
+    lavabod: BoolProperty(
+        name="",
+        description="Lavabod",
+        default=False,
+    ) # type: ignore
+    
+    if TYPE_CHECKING:
+        chest_size: str
+        buff      : bool
+        rue       : bool
+        lavabod   : bool
+
+class LegState(PropertyGroup):
+    gen: EnumProperty(
+        name="",
+        description="Choose a genitalia type",
+        default="0",
+        items=[
+            ("0", "Gen A", "Labia majora"),
+            ("1", "Gen B", "Visible labia minora"),
+            ("2", "Gen C", "Open vagina"),
+            ("3", "Gen SFW", "Barbie doll"),
+        ]
+        ) # type: ignore
+    
+    def no_hips(self, context) -> None:
+        if int(self.legs) > 2 and self.alt_hips:
+            self.alt_hips = False
+    
+    legs: EnumProperty(
+        name="",
+        description="Choose a leg size",
+        default="0",
+        items=[
+            ("0", "Melon", "For crushing melons"),
+            ("1", "Skull", "For crushing skulls"),
+            ("2", "Yanilla", "As Yoshi-P intended"),
+            ("3", "Masc", "Yet Another Masc"),
+            ("4", "Lavabod", "Bigger hips, butt and hip dips"),
+            ("5", "Mini", "Smaller legs"),
+        ],
+        update=no_hips
+        ) # type: ignore
+    
+    rue: BoolProperty(
+        name="",
+        description="Adds tummy",
+        default=False,
+    ) # type: ignore
+
+    small_butt: BoolProperty(
+        name="",
+        description="Not actually small, except when it is",
+        default=False,
+    ) # type: ignore
+
+    soft_butt: BoolProperty(
+        name="",
+        description="Less perky butt",
+        default=False,
+    ) # type: ignore
+
+    def change_legs(self, context) -> None:
+        if self.alt_hips and int(self.legs) > 2:
+            self.legs = "0"
+
+    alt_hips: BoolProperty(
+        name="",
+        description="Removes hip dips on Rue, adds them on YAB",
+        default=False,
+        update=change_legs 
+    ) # type: ignore
+
+    squish: EnumProperty(
+        name="",
+        description="Constrict your thighs",
+        default="0",
+        items=[
+            ("0", "None", "No squish"),
+            ("1", "Squish", "Thick band"),
+            ("2", "Squimsh", "Thin band"),
+        ]
+        ) # type: ignore
+    
+    if TYPE_CHECKING:
+        gen       :str
+        legs      :str
+        rue       :bool
+        small_butt:bool
+        soft_butt :bool
+        alt_hips      :bool
+        squish    :str
+
+class HandState(PropertyGroup):
+    nails: EnumProperty(
+        name="",
+        description="Choose a nail type",
+        default="0",
+        items=[
+            ("0", "Long", "Standard Large"),
+            ("1", "Short", "Standard Medium"),
+            ("2", "Ballerina", "Standard Small"),
+            ("3", "Stabbies", "Yet Another Masc"),
+        ]
+        ) # type: ignore
+
+    buff: BoolProperty(
+        name="",
+        description="Adds muscle",
+        default=False,
+    ) # type: ignore
+
+    rue: BoolProperty(
+        name="",
+        description="Adds tummy",
+        default=False,
+    ) # type: ignore
+
+    lavabod: BoolProperty(
+        name="",
+        description="Lavabod",
+        default=False,
+    ) # type: ignore
+    
+    if TYPE_CHECKING:
+        chest_size: str
+        buff      : bool
+        rue       : bool
+        lavabod   : bool
+
+class FeetState(PropertyGroup):
+    pass
+
+class DevkitMannequin(PropertyGroup):
+    torso: PointerProperty(type=TorsoState) # type: ignore
+    legs: PointerProperty(type=LegState) # type: ignore
+
+    if TYPE_CHECKING:
+        torso: TorsoState
+        legs : LegState
+
 class DevkitProps(PropertyGroup):
     
     #       Shapes:         (Name,           Slot/Misc,      Category, Description,                                           Body,             Shape Key)
@@ -501,6 +667,12 @@ class DevkitProps(PropertyGroup):
         "Feet",
         "Mannequin",
     ]
+
+    torso_state: PointerProperty(type=TorsoState) # type: ignore
+
+    leg_state: PointerProperty(type=LegState) # type: ignore
+
+    hand_state: PointerProperty(type=LegState) # type: ignore
 
     yam_torso: PointerProperty(
         type=Object,
@@ -609,7 +781,9 @@ class DevkitProps(PropertyGroup):
         shape_mq_other_bool: bool
         collection_state   : Iterable[CollectionState]
         object_state       : Iterable[ObjectState]
-
+        
+        torso_state        : TorsoState
+        leg_state          : LegState
         yam_torso          : Object
         yam_legs           : Object
         yam_hands          : Object
@@ -1135,16 +1309,6 @@ class TriangulateLink(Operator):
         link_tri_modifier()
         return {'FINISHED'}
 
-class AssignControllers(Operator):
-    bl_idname = "yakit.assign_controllers"
-    bl_label = "Assign Controller Meshes"
-    bl_description = "Automatically find and assign controller meshes"
-    
-    def execute(self, context):
-        assign_controller_meshes()
-        self.report({'INFO'}, "Controller meshes updated!")
-        return {'FINISHED'}
-
 class ResetQueue(Operator):
     bl_idname = "yakit.reset_queue"
     bl_label = "Export"
@@ -1228,8 +1392,6 @@ class Overview(Panel):
         self.legs  = self.props.yam_legs
         self.hands = self.props.yam_hands
         self.feet  = self.props.yam_feet
-
-        layout     = self.layout
 
         options ={
             "Body": "OUTLINER_OB_ARMATURE",
@@ -1472,106 +1634,50 @@ class Overview(Panel):
         else:
             target = torso
 
-        medium_mute = target.data.shape_keys.key_blocks["MEDIUM"].mute
-        small_mute = target.data.shape_keys.key_blocks["SMALL"].mute
-        masc_mute = target.data.shape_keys.key_blocks["MASC"].mute
-        buff_mute = target.data.shape_keys.key_blocks["Buff"].mute
-        rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
-        lava_mute = target.data.shape_keys.key_blocks["Lavabod"].mute
-        
-        large_depress = True if small_mute and medium_mute and masc_mute else False
-        medium_depress = True if not medium_mute and small_mute and masc_mute else False
-        small_depress = True if not small_mute and medium_mute and masc_mute else False
-        masc_depress = True if not masc_mute and medium_mute and small_mute else False
-        buff_depress = True if not buff_mute else False
-        rue_depress = True if not rue_mute else False
-        lava_depress = True if not lava_mute else False
-        
+        chest_size = self.props.torso_state.chest_size
+        lavabod    = self.props.torso_state.lavabod
         row = layout.row(align=True)
-        text = "Omoi" if lava_depress else "Large"
-        operator = row.operator("yakit.apply_shapes", text=text, depress=large_depress)
-        operator.key = "Large"
-        operator.target = "Torso"
-        operator.preset = "chest_category"
-        operator.desc   = "Lava Omoi" if lava_depress else "Large"
-
-        text = "Teardrop" if lava_depress else "Medium"
-        operator = row.operator("yakit.apply_shapes", text= text, depress=medium_depress)
-        operator.key = "Medium"
-        operator.target = "Torso"
-        operator.preset = "chest_category"
-        operator.desc   = "Teardrop" if lava_depress else "Medium"
-
-        text = "Cupcake" if lava_depress else "Small"
-        operator = row.operator("yakit.apply_shapes", text= text, depress=small_depress)
-        operator.key = "Small"
-        operator.target = "Torso"
-        operator.preset = "chest_category"
-        operator.desc   = "Cupcake" if lava_depress else "Small"
-
-        operator = row.operator("yakit.apply_shapes", text= "Masc", depress=masc_depress)
-        operator.key = "Masc"
-        operator.target = "Torso"
-        operator.preset = "chest_category"
-        operator.desc   = "Flat"
+        row.prop(self.props.torso_state, "chest_size", expand=True, text="Size")
 
         row = layout.row(align=True)
-        operator = row.operator("yakit.apply_shapes", text= "Buff", depress=buff_depress)
-        operator.key = "Buff"
-        operator.target = "Torso"
-        operator.preset = "other"
-        operator.desc   = "Buff"
-
-        operator = row.operator("yakit.apply_shapes", text= "Rue", depress=rue_depress)
-        operator.key = "Rue"
-        operator.target = "Torso"
-        operator.preset = "other"
-        operator.desc   = "Rue"
-
-        operator = row.operator("yakit.apply_shapes", text= "Lava", depress=lava_depress)
-        operator.key = "Lavabod"
-        operator.target = "Torso"
-        operator.preset = "other"
-        operator.desc   = "Lava"
+        row.prop(self.props.torso_state, "buff", text=f"{'Buff':<8}", icon="BLANK1")
+        row.prop(self.props.torso_state, "rue", text=f"{'Rue':<9}", icon="BLANK1")
+        row.prop(self.props.torso_state, "lavabod", text=f"{'Lavabod':<13}", icon="BLANK1")
 
         box = layout.box()
         row = box.row()
         
-        if not small_mute and not medium_mute:
-            row.alignment = "CENTER"
-            row.label(text="Select a chest size.")
-        else:
-            split = row.split(factor=0.25)
-            col = split.column(align=True)
-            col.alignment = "RIGHT"
-            col2 = split.column(align=True)
+        split = row.split(factor=0.25)
+        col = split.column(align=True)
+        col.alignment = "RIGHT"
+        col2 = split.column(align=True)
 
-            skip      = {"-- Teardrop", "--- Cupcake"}
-            lava_skip = ["Omoi", "Uranus", "Nops", "Mini", "Sayonara"]
-            prefix_conditions = [
-                (masc_depress,   "---- ", 5),
-                (small_depress,  "--- ", 4),
-                (medium_depress, "-- ", 3),
-                (large_depress,  "- ", 2),
-            ]
+        skip      = {"-- Teardrop", "--- Cupcake"}
+        lava_skip = ["Omoi", "Uranus", "Nops", "Mini", "Sayonara"]
+        prefix_conditions = [
+            (chest_size == "3",   "---- ", 5),
+            (chest_size == "2",  "--- ", 4),
+            (chest_size == "1", "-- ", 3),
+            (chest_size == "0",  "- ", 2),
+        ]
 
-            name_idx = 0
-            for key in target.data.shape_keys.key_blocks[1:]:
-                for condition, prefix, idx in prefix_conditions:
-                    if condition and key.name.startswith(prefix):
-                        name_idx = idx
-                        break
-                else:
-                    continue
-                if lava_depress and any(skip in key.name for skip in lava_skip):
-                    continue
-                if not lava_depress and "Soft" in key.name:
-                    continue
-                if key.name in skip:
-                    continue
-    
-                col.label(text=f"{key.name[name_idx:]}:")
-                col2.prop(key, "value", text=f"{key.value*100:.0f}%")
+        name_idx = 0
+        for key in target.data.shape_keys.key_blocks[1:]:
+            for condition, prefix, idx in prefix_conditions:
+                if condition and key.name.startswith(prefix):
+                    name_idx = idx
+                    break
+            else:
+                continue
+            if lavabod and any(skip in key.name for skip in lava_skip):
+                continue
+            if not lavabod and "Soft" in key.name:
+                continue
+            if key.name in skip:
+                continue
+
+            col.label(text=f"{key.name[name_idx:]}:")
+            col2.prop(key, "value", text=f"{key.value*100:.0f}%")
      
         
         layout.separator(factor=0.1)
@@ -1599,166 +1705,38 @@ class Overview(Panel):
         else:
             target = legs
 
-        skull_mute = target.data.shape_keys.key_blocks["Skull Crushers"].mute
-        mini_mute = target.data.shape_keys.key_blocks["Mini"].mute
-        rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
-        lava_mute = target.data.shape_keys.key_blocks["Lavabod"].mute
-        masc_mute = target.data.shape_keys.key_blocks["Masc"].mute
-        yanilla_mute = target.data.shape_keys.key_blocks["Yanilla"].mute
-
-        genb_mute = target.data.shape_keys.key_blocks["Gen B"].mute
-        genc_mute = target.data.shape_keys.key_blocks["Gen C"].mute
-        gensfw_mute = target.data.shape_keys.key_blocks["Gen SFW"].mute
-
-        small_mute = target.data.shape_keys.key_blocks["Small Butt"].mute
-        soft_mute = target.data.shape_keys.key_blocks["Soft Butt"].mute
-
-        hip_yab_mute = target.data.shape_keys.key_blocks["Hip Dips (for YAB)"].mute
-        hip_rue_mute = target.data.shape_keys.key_blocks["Less Hip Dips (for Rue)"].mute
-
-        squish_mute = target.data.shape_keys.key_blocks["Squish"].mute
-        squimsh_mute = target.data.shape_keys.key_blocks["Squimsh"].mute
-
-        melon_depress = True if skull_mute and mini_mute and lava_mute and masc_mute and yanilla_mute else False
-        skull_depress = True if not skull_mute else False
-        mini_depress = True if not mini_mute else False
-        rue_depress = True if not rue_mute else False
-        lava_depress = True if not lava_mute else False
-        masc_depress = True if not masc_mute else False
-        yanilla_depress = True if not yanilla_mute else False
-        
-
-        gena_depress = True if genb_mute and gensfw_mute and genc_mute else False
-        genb_depress = True if not genb_mute else False
-        genc_depress = True if not genc_mute else False
-        gensfw_depress = True if not gensfw_mute else False
-
-        small_depress = True if not small_mute else False
-        soft_depress = True if not soft_mute else False
-        hip_depress = True if not hip_yab_mute or not hip_rue_mute else False
-
-        squish_depress = True if not squish_mute else False
-        squimsh_depress = True if not squimsh_mute else False
-        
         row = layout.row(align=True) 
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Genitalia:")
-        button_row = split.row(align=True)
+        subrow = split.row(align=True)
+        subrow.prop(self.props.leg_state, "gen", expand=True, text="Size")
 
-        operator = button_row.operator("yakit.apply_shapes", text= "A", depress=gena_depress)
-        operator.key = "Gen A"
-        operator.target = "Legs"
-        operator.preset = "gen"
-        operator.desc = "Gen A"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "B", depress=genb_depress)
-        operator.key = "Gen B"
-        operator.target = "Legs"
-        operator.preset = "gen"
-        operator.desc = "Gen B"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "C", depress=genc_depress)
-        operator.key = "Gen C"
-        operator.target = "Legs"
-        operator.preset = "gen"
-        operator.desc = "Gen C"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "SFW", depress=gensfw_depress)
-        operator.key = "Gen SFW"
-        operator.target = "Legs"
-        operator.preset = "gen"
-        operator.desc = "Gen SFW"
-        
-        row = layout.row(align=True)
+        row = layout.row(align=True) 
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
-        split.label(text="Leg sizes:")
-        button_row = split.row(align=True)
-        operator = button_row.operator("yakit.apply_shapes", text= "Melon", depress=melon_depress)
-        operator.key = "Melon"
-        operator.target = "Legs"
-        operator.preset = "leg_size"
-        operator.desc = "Melon"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "Skull", depress=skull_depress)
-        operator.key = "Skull"
-        operator.target = "Legs"
-        operator.preset = "leg_size"
-        operator.desc = "Skull"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "Yanilla", depress=yanilla_depress)
-        operator.key = "Yanilla"
-        operator.target = "Legs"
-        operator.preset = "leg_size"
-        operator.desc = "Yanilla"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "Lava", depress=lava_depress)
-        operator.key = "Lava"
-        operator.target = "Legs"
-        operator.preset = "leg_size"
-        operator.desc = "Lava Legs"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "Masc", depress=masc_depress)
-        operator.key = "Masc"
-        operator.target = "Legs"
-        operator.preset = "leg_size"
-        operator.desc = "Masc Legs"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "Mini", depress=mini_depress)
-        operator.key = "Mini"
-        operator.target = "Legs"
-        operator.preset = "leg_size"
-        operator.desc = "Mini Legs"
-
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Butt options:")
-        button_row = split.row(align=True)
-        operator = button_row.operator("yakit.apply_shapes", text= "Small", depress=small_depress)
-        operator.key = "Small Butt"
-        operator.target = "Legs"
-        operator.preset = "other"
-        operator.desc = "Small Butt"
-        
-        operator = button_row.operator("yakit.apply_shapes", text= "Soft", depress=soft_depress)
-        operator.key = "Soft Butt"
-        operator.target = "Legs"
-        operator.preset = "other"
-        operator.desc = "Soft Butt"
+        split.label(text="Leg Sizes:")
+        subrow = split.row(align=True)
+        subrow.prop(self.props.leg_state, "legs", expand=True, text="Size")
 
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Squish:")
-        button_row = split.row(align=True)
-        operator = button_row.operator("yakit.apply_shapes", text= "Squish", depress=squish_depress)
-        operator.key = "Squish"
-        operator.target = "Legs"
-        operator.preset = "other"
-        operator.desc = "Squish"
-        
-        operator = button_row.operator("yakit.apply_shapes", text= "Squimsh", depress=squimsh_depress)
-        operator.key = "Squimsh"
-        operator.target = "Legs"
-        operator.preset = "other"
-        operator.desc = "Squimsh"
+        subrow = split.row(align=True)
+        subrow.prop(self.props.leg_state, "squish", expand=True, text="Size")
 
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
-        operator = split.operator("yakit.apply_shapes", text= "Alt Hips", depress=hip_depress)
-        operator.key = "Alt Hips"
-        operator.target = "Legs"
-        operator.preset = "other"
-        operator.desc = "Hip Dips"
+        split.alignment = "RIGHT"
+        split.label(text="Butt options:")
+        split.prop(self.props.leg_state, "small_butt", text=f"{'Small Butt':<14}", icon="BLANK1")
+        split.prop(self.props.leg_state, "soft_butt", text=f"{'Soft Butt':<14}", icon="BLANK1")
 
-        button_row = split.row(align=True)
-        operator = button_row.operator("yakit.apply_shapes", text= "Rue", depress=rue_depress)
-        operator.key = "Rue"
-        operator.target = "Legs"
-        operator.preset = "other"
-        operator.desc = "Rue Legs"
+        row = layout.row(align=True)
+        split = row.split(factor=0.25, align=True)
+        split.prop(self.props.leg_state, "alt_hips", text=f"{'Alt Hips':<13}", icon="BLANK1")
+        split.prop(self.props.leg_state, "rue", text=f"{'Rue':<9}", icon="BLANK1")
         
         layout.separator(factor=0.1)
 
@@ -1943,13 +1921,15 @@ class Overview(Panel):
 CLASSES = [
     CollectionState,
     ObjectState,
+    AssignControllers,
     DevkitWindowProps,
+    TorsoState,
+    LegState,
     DevkitProps,
     CollectionManager,
     ApplyShapes,
     ApplyVisibility,
     TriangulateLink,
-    AssignControllers,
     ResetQueue,
     PanelCategory,
     Overview
