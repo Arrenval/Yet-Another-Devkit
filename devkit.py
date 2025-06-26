@@ -1960,26 +1960,13 @@ def delayed_setup(dummy=None) -> None:
     devkit_registered = True
     return None
 
+@persistent
 def cleanup_props(dummy=None) -> None:
-    global devkit_registered  
-    for cls in reversed(CLASSES):
-        try:
-            bpy.utils.unregister_class(cls)
-        except:
-            continue
-    
-    try:
-        del bpy.types.Scene.ya_devkit_props
-    except:
-        pass
-    try:
-        del bpy.types.WindowManager.ya_devkit_window
-    except:
-        pass
-    
-    bpy.app.handlers.load_post.remove(delayed_setup)
-    bpy.app.handlers.load_pre.remove(cleanup_props)
-    devkit_registered = False
+    global devkit_registered
+    if not bpy.data.texts.get("devkit.py"):
+        unregister()
+        devkit_registered = False
+
 
 def get_devkit_props() -> DevkitProps:
     return bpy.context.scene.ya_devkit_props
@@ -2006,12 +1993,10 @@ def register() -> None:
         if cls == DevkitProps:
             set_devkit_properties()
 
-    bpy.app.timers.register(delayed_setup, first_interval=1)
-    bpy.app.handlers.load_post.append(delayed_setup)
+    bpy.app.timers.register(delayed_setup, first_interval=1.5)
     bpy.app.handlers.load_post.append(cleanup_props)
 
-def unregister() -> None:
-    global devkit_registered  
+def unregister() -> None: 
     for cls in reversed(CLASSES):
         try:
             bpy.utils.unregister_class(cls)
@@ -2033,9 +2018,10 @@ def unregister() -> None:
     except:
         pass
     
-    bpy.app.handlers.load_post.remove(delayed_setup)
-    bpy.app.handlers.load_pre.remove(cleanup_props)
-    devkit_registered = False
+    try:
+        bpy.app.handlers.load_post.remove(cleanup_props)
+    except:
+        pass
 
 if __name__ == "__main__":
     register()
