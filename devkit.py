@@ -103,16 +103,21 @@ class ModelDrivers():
         self.leg_drivers()
         self.leg_drivers(mq=True)
 
+        self.hand_drivers()
+        self.hand_drivers(mq=True)
+
+        self.feet_drivers()
+        self.feet_drivers(mq=True)
+
     def torso_drivers(self, mq=False) -> None:
         if mq:
             obj     = self.props.yam_mannequin
-            obj_str = "mannequin_state.torso"
+            obj_str = "mannequin_state"
         else:
             obj     = self.props.yam_torso
             obj_str = "torso_state"
 
         target_keys = obj.data.shape_keys.key_blocks
-        obj_str     = "torso_state"
         chest_path  = self._get_data_path(obj_str, "chest_size")
         lava_path   = self._get_data_path(obj_str, "lavabod")
 
@@ -196,15 +201,17 @@ class ModelDrivers():
     def leg_drivers(self, mq=False) -> None:
         if mq:
             obj      = self.props.yam_mannequin
-            obj_str  = "mannequin_state.legs"
+            obj_str  = "mannequin_state"
             base_key = "LARGE"
+            lava_key = "Lava Legs"
         else:
             obj      = self.props.yam_legs
             obj_str  = "leg_state"
             base_key = "Gen A/Watermelon Crushers"
+            lava_key = "Lavabod"
 
         target_keys = obj.data.shape_keys.key_blocks
-        legs_path   = self._get_data_path(obj_str, "legs")
+        legs_path   = self._get_data_path(obj_str, "leg_size")
         gen_path    = self._get_data_path(obj_str, "gen")
         hip_path    = self._get_data_path(obj_str, "alt_hips")
         rue_path    = self._get_data_path(obj_str, "rue")
@@ -232,11 +239,13 @@ class ModelDrivers():
             1: "Skull Crushers", 
             2: "Yanilla",
             3: "Masc", 
-            4: "Lavabod",
+            4: lava_key,
             5: "Mini", 
         }
 
         for value, key in leg_keys.items():
+            if key == "Lavabod" and mq:
+                continue
             target = target_keys[key]
             expression = f"legs == {value}"
 
@@ -249,6 +258,8 @@ class ModelDrivers():
             
         option_keys = ["Rue", "Small Butt", "Soft Butt", "Alt Hips"]
         for key in option_keys:
+            if key == "Rue" and mq:
+                continue
             target = target_keys[key]
             var = key.lower().replace(" ", "_")
             expression = f"{var} == 1"
@@ -303,14 +314,118 @@ class ModelDrivers():
             "legs == 5 and rue == 1"
             )
         
+        if mq:
+            create_driver(
+                target_keys["Rue/Lava Legs"],
+                "value",
+                [("legs", legs_path), 
+                ("rue", rue_path)],
+                "legs == 4 and rue == 1"
+                )
+        
         create_driver(
             target_keys["Rue/Lava"],
             "value",
-            [("legs", legs_path), 
+            [("lavabod", self._get_data_path(obj_str, "lavabod")), 
             ("rue", rue_path)],
-            "legs == 4 and rue == 1"
+            "lavabod == 1 and rue == 1"
             )
 
+    def hand_drivers(self, mq=False) -> None:
+        if mq:
+            obj      = self.props.yam_mannequin
+            obj_str  = "mannequin_state"
+            base_key = "LARGE"
+            rue_key  = "Rue Hands"
+        else:
+            obj      = self.props.yam_hands
+            obj_str  = "hand_state"
+            base_key = "NAILS"
+            rue_key  = "Rue"
+
+        target_keys = obj.data.shape_keys.key_blocks
+        nail_path  = self._get_data_path(obj_str, "nails")
+        body_path  = self._get_data_path(obj_str, "hand_size")
+
+        nail_keys = {
+            base_key: 0, 
+            "Short Nails": 1, 
+            "Ballerina": 2, 
+            "Stabbies": 3,
+        }
+
+        for key, value in nail_keys.items():
+            target = target_keys[key]
+            expression = f"nails == {value}"
+
+            create_driver(
+                target,
+                "value",
+                [("nails", nail_path)],
+                expression
+                )
+        
+        body_keys = {
+            base_key: 0, 
+            rue_key: 1, 
+            "Lavabod": 2, 
+        }
+
+        for key, value in body_keys.items():
+            target = target_keys[key]
+            expression = f"hand_size == {value}"
+
+            create_driver(
+                target_keys[key],
+                "value",
+                [("hand_size", body_path)],
+                expression
+                    )
+        
+        if not mq:
+            body_keys = {
+            base_key: 0, 
+            "Curved": 1, 
+        }
+
+            for key, value in body_keys.items():
+                target = target_keys[key]
+                expression = f"clawsies == {value}"
+
+                create_driver(
+                    target_keys[key],
+                    "value",
+                    [("clawsies", body_path)],
+                    expression
+                    )
+
+    def feet_drivers(self, mq=False) -> None:
+        if mq:
+            obj      = self.props.yam_mannequin
+            obj_str  = "mannequin_state"
+            rue_key  = "Rue Feet"
+        else:
+            obj      = self.props.yam_feet
+            obj_str  = "feet_state"
+            rue_key  = "Rue"
+
+        target_keys = obj.data.shape_keys.key_blocks
+        rue_path    = self._get_data_path(obj_str, "rue_feet")
+
+        create_driver(
+            target_keys[rue_key],
+            "value",
+            [("rue_feet", rue_path)],
+            "rue == 1"
+        )
+        
+        create_driver(
+                target_keys["Rue/Cinderella"],
+                "mute",
+                [("rue", rue_path)],
+                "rue != 1"
+            )
+               
     def _get_data_path(self, obj_str: str, prop: str) -> str:
         return f"{self.data_path}.{obj_str}.{prop}"
     
