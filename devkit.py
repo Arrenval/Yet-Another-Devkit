@@ -1,10 +1,11 @@
 import bpy   
 
-from typing    import TYPE_CHECKING, Iterable
-from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty
-from bpy.types import Operator, Panel, PropertyGroup, Object, Mesh, Context, UILayout, ShapeKey, Collection, LayerCollection, Driver
+from typing           import TYPE_CHECKING, Iterable
+from bpy.props        import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty
+from bpy.types        import Operator, Panel, PropertyGroup, Object, Mesh, Context, UILayout, ShapeKey, Collection, LayerCollection, Driver
+from bpy.app.handlers import persistent
 
-devkit_registered: bool = False
+devkit_registered = False
 
 def assign_controller_meshes():
     props = get_devkit_props()
