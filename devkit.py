@@ -519,11 +519,210 @@ class DevkitWindowProps(PropertyGroup):
         overview_ui: str
         devkit_triangulation: bool
 
-class CollectionState(PropertyGroup):
+class EnabledCollection(PropertyGroup):
     name: StringProperty() # type: ignore
     
     if TYPE_CHECKING:
         name: str
+
+class CollectionState(PropertyGroup):
+
+    def update_skeleton(self, context: Context):
+        context.view_layer.layer_collection.children["Skeleton"].exclude = not self.skeleton
+
+    skeleton: BoolProperty(
+        name="",
+        description="Skeletons reside here",
+        default=True,
+        update=update_skeleton
+    ) # type: ignore
+
+    def update_chest(self, context: Context):
+        context.view_layer.layer_collection.children["Chest"].exclude = not self.chest
+
+    chest: BoolProperty(
+        name="",
+        description="bob",
+        default=True,
+        update=update_chest
+    ) # type: ignore
+
+    def update_nipple_piercings(self, context: Context):
+        context.view_layer.layer_collection.children["Chest"].children["Nipple Piercings"].exclude = not self.nipple_piercings
+
+    nipple_piercings: BoolProperty(
+        name="",
+        description="Ouchies",
+        default=False,
+        update=update_nipple_piercings
+    ) # type: ignore
+
+    def update_legs(self, context: Context):
+        context.view_layer.layer_collection.children["Legs"].exclude = not self.legs
+
+    legs: BoolProperty(
+        name="",
+        description="Leggies",
+        default=False,
+        update=update_legs
+    ) # type: ignore
+    
+    def update_pubes(self, context: Context):
+        context.view_layer.layer_collection.children["Legs"].children["Pubes"].exclude = not self.pubes
+
+    pubes: BoolProperty(
+        name="",
+        description="pubs",
+        default=False,
+        update=update_pubes
+    ) # type: ignore
+
+    def update_hands(self, context: Context):
+        if not self.hands:
+            self.nails    = False
+            self.clawsies = False
+            context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = True
+            context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = True
+        else:
+            self.nails = True
+
+        context.view_layer.layer_collection.children["Hands"].exclude = not self.hands
+
+        
+    hands: BoolProperty(
+        name="",
+        description="jazz",
+        default=False,
+        update=lambda self, context: self.update_hands(context)
+    ) # type: ignore
+
+    def update_nails(self, context: Context):
+        context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = not self.nails
+
+    nails: BoolProperty(
+        name="",
+        description="stabbies",
+        default=False,
+        update=update_nails
+    ) # type: ignore
+
+    def update_clawsies(self, context: Context):
+        context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = not self.clawsies
+
+    clawsies: BoolProperty(
+        name="",
+        description="most stabbies",
+        default=False,
+        update=update_clawsies
+    ) # type: ignore
+
+    def update_practical(self, context: Context):
+        context.view_layer.layer_collection.children["Hands"].children["Nails"].children["Practical Uses"].exclude = not self.practical
+
+    practical: BoolProperty(
+        name="",
+        description="stabbies",
+        default=False,
+        update=update_practical
+    ) # type: ignore
+
+    def update_feet(self, context: Context):
+        context.view_layer.layer_collection.children["Feet"].exclude = not self.feet
+
+
+
+    feet: BoolProperty(
+        name="",
+        description="toesies",
+        default=False,
+        update=update_feet
+    ) # type: ignore
+
+    def update_toenails(self, context: Context):
+        context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude = not self.toenails
+
+    toenails: BoolProperty(
+        name="",
+        description="just nails",
+        default=False,
+        update=update_toenails
+    ) # type: ignore
+
+    def update_toe_clawsies(self, context: Context):
+        context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude = not self.toe_clawsies
+
+    toe_clawsies: BoolProperty(
+        name="",
+        description="more clawsies",
+        default=False,
+        update=update_toe_clawsies
+    ) # type: ignore
+
+    def update_mannequin(self, context: Context):
+        context.view_layer.layer_collection.children["Mannequin"].exclude = not self.mannequin
+
+    mannequin: BoolProperty(
+        name="",
+        description="toesies",
+        default=False,
+        update=update_mannequin
+    ) # type: ignore
+
+    def update_export(self, context: Context):
+        resources    = context.view_layer.layer_collection.children["Resources"]
+        data_sources = resources.children["Data Sources"]
+
+        # Order matters for consistency
+        if self.export:
+            resources.hide_viewport = self.export
+            resources.exclude       = not self.export
+            data_sources.exclude    = not self.export
+
+            data_sources.children["UV/Weights"].exclude                      = not self.export
+            data_sources.children["UV/Weights"].children["Rue"].exclude      = not self.export
+            data_sources.children["UV/Weights"].children["Nail UVs"].exclude = not self.export
+        else:
+            data_sources.children["UV/Weights"].children["Nail UVs"].exclude = not self.export
+            data_sources.children["UV/Weights"].children["Rue"].exclude      = not self.export
+            data_sources.children["UV/Weights"].exclude                      = not self.export
+            
+            data_sources.exclude    = not self.export
+            resources.exclude       = not self.export
+            resources.hide_viewport = self.export
+        
+        context.view_layer.update()
+
+    export: BoolProperty(
+        name="",
+        description="when you need to get the files out",
+        default=False,
+        update=update_export
+    ) # type: ignore
+
+    if TYPE_CHECKING:
+        skeleton        : bool
+        chest           : bool
+        nipple_piercings: bool
+        legs            : bool
+        pubes           : bool
+        hands           : bool
+        nails           : bool
+        clawsies        : bool
+        practical       : bool
+        feet            : bool
+        toenails        : bool
+        toe_clawsies    : bool
+        mannequin       : bool
+        export          : bool
+
+
+class SubKeyValues(PropertyGroup):
+    name: StringProperty() # type: ignore
+    value: FloatProperty(default=0.0) # type: ignore
+
+    if TYPE_CHECKING:
+        name : str
+        value: float
 
 class ObjectState(PropertyGroup):
     name: StringProperty() # type: ignore
@@ -534,6 +733,13 @@ class ObjectState(PropertyGroup):
         hide: bool
 
 class TorsoState(PropertyGroup):
+
+    MANNEQUIN: BoolProperty(
+        name="Mannequin",
+        default=False,
+        options={'HIDDEN', 'SKIP_SAVE'}  # Hidden from UI and not saved
+    ) # type: ignore
+
     chest_size: EnumProperty(
         name="",
         description="Choose a chest size",
@@ -558,19 +764,67 @@ class TorsoState(PropertyGroup):
         default=False,
     ) # type: ignore
 
+    def _save_sub_keys(self, context):
+        sizes = {}
+        if self.MANNEQUIN:
+            key_blocks = get_devkit_props().yam_mannequin.data.shape_keys.key_blocks
+        else:
+            key_blocks = get_devkit_props().yam_torso.data.shape_keys.key_blocks
+
+        if self.lavabod:
+            stored_keys = self.lava_keys
+            new_values  = self.yab_keys
+        else:
+            stored_keys = self.yab_keys
+            new_values  = self.lava_keys
+
+        if stored_keys:
+            for key in stored_keys:
+                sizes[key.name] = key.value
+
+        print(sizes)
+        new_values.clear()
+        for key in key_blocks:
+            if not key.name.startswith("-"):
+                continue
+            count = key.name[:4].count("-")
+            if count == 4:
+                continue
+            
+            new = new_values.add()
+            new.name = key.name
+            new.value = key.value
+
+            if key.name in sizes:
+                # print(key.value)
+                key.value = sizes[key.name]
+                # print(key.value)
+
+        if self.lavabod and not sizes:
+            key_blocks["- Squeeze"].value = 0.0
+
     lavabod: BoolProperty(
         name="",
         description="Lavabod",
         default=False,
+        update=_save_sub_keys
     ) # type: ignore
     
+    yab_keys: CollectionProperty(type=SubKeyValues) # type: ignore
+
+    lava_keys: CollectionProperty(type=SubKeyValues) # type: ignore
+
     if TYPE_CHECKING:
-        chest_size: str
-        buff      : bool
-        rue       : bool
-        lavabod   : bool
+        sizes  : str
+        buff   : bool
+        rue    : bool
+        lavabod: bool
+
+        yab_keys : Iterable[SubKeyValues]
+        lava_keys: Iterable[SubKeyValues]
 
 class LegState(PropertyGroup):
+
     gen: EnumProperty(
         name="",
         description="Choose a genitalia type",
@@ -583,11 +837,11 @@ class LegState(PropertyGroup):
         ]
         ) # type: ignore
     
-    def no_hips(self, context) -> None:
-        if int(self.legs) > 2 and self.alt_hips:
+    def _no_hips_dips(self, context) -> None:
+        if int(self.leg_size) > 2 and self.alt_hips:
             self.alt_hips = False
     
-    legs: EnumProperty(
+    leg_size: EnumProperty(
         name="",
         description="Choose a leg size",
         default="0",
@@ -599,7 +853,7 @@ class LegState(PropertyGroup):
             ("4", "Lavabod", "Bigger hips, butt and hip dips"),
             ("5", "Mini", "Smaller legs"),
         ],
-        update=no_hips
+        update=_no_hips_dips
         ) # type: ignore
     
     rue: BoolProperty(
@@ -620,7 +874,7 @@ class LegState(PropertyGroup):
         default=False,
     ) # type: ignore
 
-    def change_legs(self, context) -> None:
+    def _change_legs(self, context) -> None:
         if self.alt_hips and int(self.legs) > 2:
             self.legs = "0"
 
@@ -628,7 +882,7 @@ class LegState(PropertyGroup):
         name="",
         description="Removes hip dips on Rue, adds them on YAB",
         default=False,
-        update=change_legs 
+        update=_change_legs 
     ) # type: ignore
 
     squish: EnumProperty(
@@ -643,61 +897,98 @@ class LegState(PropertyGroup):
         ) # type: ignore
     
     if TYPE_CHECKING:
-        gen       :str
-        legs      :str
-        rue       :bool
-        small_butt:bool
-        soft_butt :bool
-        alt_hips      :bool
-        squish    :str
+        gen       : str
+        leg_size  : str
+        rue       : bool
+        small_butt: bool
+        soft_butt : bool
+        alt_hips  : bool
+        squish    : str
 
 class HandState(PropertyGroup):
+
     nails: EnumProperty(
         name="",
         description="Choose a nail type",
         default="0",
         items=[
-            ("0", "Long", "Standard Large"),
-            ("1", "Short", "Standard Medium"),
-            ("2", "Ballerina", "Standard Small"),
-            ("3", "Stabbies", "Yet Another Masc"),
+            ("0", "Long", "They're long"),
+            ("1", "Short", "They're short"),
+            ("2", "Ballerina", "Some think they look like shoes"),
+            ("3", "Stabbies", "You can stab someone's eyes with these"),
+        ]
+        ) # type: ignore
+    
+    hand_size: EnumProperty(
+        name="",
+        description="Choose a body",
+        default="0",
+        items=[
+            ("0", "YAB", "YAB hands"),
+            ("1", "Rue", "Rue hands"),
+            ("3", "Lavabod", "Lava hands"),
         ]
         ) # type: ignore
 
-    buff: BoolProperty(
+    clawsies: EnumProperty(
         name="",
-        description="Adds muscle",
-        default=False,
-    ) # type: ignore
+        description="Choose a clawsies type",
+        default="0",
+        items=[
+            ("0", "Straight", "When you want to murder instead"),
+            ("1", "Curved", "Less straight murdering"),
+        ]
+        ) # type: ignore
 
-    rue: BoolProperty(
-        name="",
-        description="Adds tummy",
-        default=False,
-    ) # type: ignore
-
-    lavabod: BoolProperty(
-        name="",
-        description="Lavabod",
-        default=False,
-    ) # type: ignore
-    
     if TYPE_CHECKING:
-        chest_size: str
-        buff      : bool
-        rue       : bool
-        lavabod   : bool
+        nails    : str
+        hand_size: str
+        clawsies : bool
 
 class FeetState(PropertyGroup):
-    pass
 
-class DevkitMannequin(PropertyGroup):
-    torso: PointerProperty(type=TorsoState) # type: ignore
-    legs: PointerProperty(type=LegState) # type: ignore
+    rue_feet: BoolProperty(
+        name="",
+        description="Rue feetsies",
+        default=False,
+    ) # type: ignore
 
     if TYPE_CHECKING:
-        torso: TorsoState
-        legs : LegState
+        rue_feet: bool
+
+class MannequinState(TorsoState, LegState, HandState, FeetState):
+
+    MANNEQUIN: BoolProperty(
+        name="Mannequin",
+        default=True,
+        options={'HIDDEN', 'SKIP_SAVE'}  # Hidden from UI and not saved
+    ) # type: ignore
+    pass
+    
+
+def get_shape_presets(size: str) -> dict[str, float]:
+        shape_presets = {
+        "Large":        {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
+        "Omoi":         {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 1.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
+        "Sugoi Omoi":   {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 1.0, "- Uranus Redux": 0.0, "- Sag": 1.0, "- Nip Nops": 0.0},
+        "Uranus":       {"- Squeeze": 0.0, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 1.0, "- Sag": 0.0, "- Nip Nops": 0.0},
+        "Lava Omoi":    {"- Squeeze": 0.0, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
+        
+        "Medium":       {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
+        "Sayonara":     {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 1.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
+        "Tsukareta":    {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.6, "-- Nip Nops": 0.0},
+        "Tsukareta+":   {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 1.0, "-- Nip Nops": 0.0},
+        "Mini":         {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 1.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
+        "Teardrop":     {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
+
+        "Small":        {"--- Squeeze": 0.0,                                                                                "--- Nip Nops": 0.0},
+        "Cupcake":      {"--- Squeeze": 0.0,  "--- Sugar": 0.0,                                                             "--- Nip Nops": 0.0},
+        "Sugar":        {"--- Squeeze": 0.0,  "--- Sugar": 1.0,                                                             "--- Nip Nops": 0.0},
+
+        "Flat":         {"---- Pecs": 0.0,                                                                                  "---- Nip Nops": 0.0},
+        "Pecs":         {"---- Pecs": 1.0,                                                                                  "---- Nip Nops": 0.0}
+        }
+        return shape_presets[size]
 
 class DevkitProps(PropertyGroup):
     
@@ -753,28 +1044,6 @@ class DevkitProps(PropertyGroup):
             "Rue Feet":     ("Rue",          "Feet",         "Feet",   "Changes foot shape to Rue",                           True,                "Rue"),
             "Clawsies":     ("Clawsies",     "Feet",         "Claws",  "Good for kicking",                                    False,               ""),
             }
-
-    torso_floats = [{
-        #YAB
-        "Large" : {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        "Medium": {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0,     "-- Sag": 0.0, "-- Nip Nops": 0.0},
-        "Small" : {"--- Squeeze": 0.0,                                                                                "--- Nip Nops": 0.0}},
-        #Lava
-        {
-        "Large" : {"- Squeeze": 0.0, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        "Medium": {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0,     "-- Sag": 0.0, "-- Nip Nops": 0.0},
-        "Small" : {"--- Squeeze": 0.0,  "--- Sugar": 0.0,                                                                 "--- Nip Nops": 0.0}}]
-    
-    mq_floats = [{
-        #YAB
-        "Large" : {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        "Medium": {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0,     "-- Sag": 0.0, "-- Nip Nops": 0.0},
-        "Small" : {"--- Squeeze": 0.0,                                                                                "--- Nip Nops": 0.0}},
-        #Lava
-        {
-        "Large" : {"- Squeeze": 0.0, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        "Medium": {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0,     "-- Sag": 0.0, "-- Nip Nops": 0.0},
-        "Small" : {"--- Squeeze": 0.0,  "--- Sugar": 0.0,                                                                 "--- Nip Nops": 0.0}}]
     
     mesh_list = [
         "Torso",
@@ -784,11 +1053,17 @@ class DevkitProps(PropertyGroup):
         "Mannequin",
     ]
 
+    collection_state: PointerProperty(type=CollectionState) # type: ignore
+
     torso_state: PointerProperty(type=TorsoState) # type: ignore
 
     leg_state: PointerProperty(type=LegState) # type: ignore
 
-    hand_state: PointerProperty(type=LegState) # type: ignore
+    hand_state: PointerProperty(type=HandState) # type: ignore
+
+    feet_state: PointerProperty(type=FeetState) # type: ignore
+
+    mannequin_state: PointerProperty(type=MannequinState) # type: ignore
 
     yam_torso: PointerProperty(
         type=Object,
@@ -823,32 +1098,13 @@ class DevkitProps(PropertyGroup):
         name="",
         description="Essential for devkit functionality",
         poll=lambda self, obj: obj.type == "MESH" and "Mannequin" in obj.data.name
-    ) # type: ignore
+    ) # type: ignore  
 
-    def add_shape_key_drivers(obj, key_name, prop_name) -> None:
-        
-        if key_name in obj.shape_keys.key_blocks:
-            shape_key = obj.shape_keys.key_blocks[key_name]
-          
-            shape_key.driver_remove("value")
-            driver = shape_key.driver_add("value").driver
-
-            driver.type = "SCRIPTED"
-            driver.expression = "round(key_value/100, 2)"
-
-            var = driver.variables.new()
-            var.name = "key_value"
-            var.type = "SINGLE_PROP"
-            
-            var.targets[0].id_type = "SCENE"
-            var.targets[0].id = bpy.data.scenes["Scene"]
-            var.targets[0].data_path = f"ya_devkit_props.{prop_name}"  
-
-    def get_listable_shapes(body_slot) -> list:
+    def _get_listable_shapes(self, context) -> list:
         items = []
 
-        for shape, (name, slot, shape_category, description, body, key) in DevkitProps.ALL_SHAPES.items():
-            if body_slot.lower() == slot.lower() and description != "" and shape_category !="":
+        for shape, (name, slot, shape_category, description, body, key) in self.ALL_SHAPES.items():
+            if slot.lower() == "chest" and description != "" and shape_category !="":
                 if name == "Medium":
                     items.append(None)
                 if name == "Small":
@@ -865,7 +1121,7 @@ class DevkitProps(PropertyGroup):
     chest_shape_enum: EnumProperty(
         name= "",
         description= "Select a size",
-        items=lambda self, context: DevkitProps.get_listable_shapes("Chest")
+        items=_get_listable_shapes
         )   # type: ignore
     
     shape_mq_chest_bool: BoolProperty(
@@ -886,7 +1142,7 @@ class DevkitProps(PropertyGroup):
         default=False, 
         )   # type: ignore
 
-    collection_state: CollectionProperty(type=CollectionState) # type: ignore
+    enabled_collection: CollectionProperty(type=EnabledCollection) # type: ignore
 
     object_state: CollectionProperty(type=ObjectState) # type: ignore
 
@@ -895,16 +1151,21 @@ class DevkitProps(PropertyGroup):
         shape_mq_chest_bool: bool
         shape_mq_legs_bool : bool
         shape_mq_other_bool: bool
-        collection_state   : Iterable[CollectionState]
+        enabled_collection : Iterable[EnabledCollection]
         object_state       : Iterable[ObjectState]
         
+        collection_state   : CollectionState
         torso_state        : TorsoState
         leg_state          : LegState
+        hand_state         : HandState
+        feet_state         : FeetState
         yam_torso          : Object
         yam_legs           : Object
         yam_hands          : Object
         yam_feet           : Object
         yam_mannequin      : Object
+
+        mannequin_state: MannequinState
 
 class CollectionManager(Operator):
     bl_idname = "yakit.collection_manager"
@@ -914,50 +1175,42 @@ class CollectionManager(Operator):
     preset: StringProperty() # type: ignore
 
     def execute(self, context:Context):
-        self.props             :DevkitProps     = get_devkit_props()
-        self.view_layer                         = bpy.context.view_layer.layer_collection
-        self.collections_state :CollectionState = self.props.collection_state
-        self.object_state      :ObjectState     = self.props.object_state
-        self.coll                               = bpy.data.collections
-        self.export_collections = [
-            self.coll["Skeleton"],
-            self.coll["Resources"],
-            self.coll["Data Sources"],
-            self.coll["UV/Weights"],
-            self.coll["Nail UVs"],
-            self.coll["Rue"],
-        ]
+        self.props       :DevkitProps        = get_devkit_props()
+        self.export                          = self.props.collection_state.export
+        self.view_layer                      = bpy.context.view_layer.layer_collection
+        self.enabled_coll: EnabledCollection = self.props.enabled_collection
+        self.object_state: ObjectState       = self.props.object_state
+        self.coll                            = bpy.data.collections
         self.restore = []
         self.obj_visibility = {}
 
         if self.preset == "Export": 
             self.get_obj_visibility(context)
-            for state in self.collections_state:
+            for state in self.enabled_coll:
                 name = state.name
                 collection = self.coll[name]
-                self.export_collections.append(collection)
-            self.restore = self.export_collections
-            context.view_layer.layer_collection.children['Resources'].children['Data Sources'].hide_viewport = True
+                self.restore.append(collection)
+
+            self.export = True
             # Export state has been set by now, this saves pre-export scene to be restored after export
             self.save_current_state(context)
             self.exclude_collections(context)
             self.restore_obj_visibility()
         
         elif self.preset == "Restore": 
-            for state in self.collections_state:
+            for state in self.enabled_coll:
                     name = state.name
                     collection = self.coll[name]
                     self.restore.append(collection)
+
+            self.export = False
             self.exclude_collections(context)
             self.restore_obj_visibility()
         
         elif self.preset == "Animation":
             self.get_obj_visibility(context)
             self.save_current_state(context)
-            context.view_layer.layer_collection.children['Resources'].children['Data Sources'].exclude = True
-            context.view_layer.layer_collection.children['Resources'].children['Connectors'].exclude = True
-            context.view_layer.layer_collection.children['Resources'].children['Nail Kit'].exclude = True
-            context.view_layer.layer_collection.children['Resources'].children['Controller'].exclude = True
+            self.export = False
 
         else:
             self.save_current_state(context)
@@ -1028,374 +1281,11 @@ class CollectionManager(Operator):
         for layer_collection in context.view_layer.layer_collection.children:
             recursively_toggle_exclude(layer_collection, collection, exclude)
 
-def get_chest_size_keys(chest_subsize:str) -> str:
-    """category, sizekey"""
-    chest_category = get_chest_category(chest_subsize)
-    
-    size_key = {
-        "Large": "LARGE",
-        "Medium": "MEDIUM",
-        "Small": "SMALL"
-    }
-    return size_key[chest_category]
 
-def get_chest_category(size:str) -> str | None:
-    """subsize, category"""
-    if DevkitProps.ALL_SHAPES[size][1] == "Chest":
-        return DevkitProps.ALL_SHAPES[size][2]
-    else:
-        return None
 
-def get_shape_presets(size:str) -> dict:
-        shape_presets = {
-        "Large":        {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        "Omoi":         {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 1.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        "Sugoi Omoi":   {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 1.0, "- Uranus Redux": 0.0, "- Sag": 1.0, "- Nip Nops": 0.0},
-        "Uranus":       {"- Squeeze": 0.0, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 1.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        "Lava Omoi":    {"- Squeeze": 0.0, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        
-        "Medium":       {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
-        "Sayonara":     {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 1.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
-        "Tsukareta":    {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.6, "-- Nip Nops": 0.0},
-        "Tsukareta+":   {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 1.0, "-- Nip Nops": 0.0},
-        "Mini":         {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 1.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
-        "Teardrop":     {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
-
-        "Small":        {"--- Squeeze": 0.0,                                                                                "--- Nip Nops": 0.0},
-        "Cupcake":      {"--- Squeeze": 0.0,  "--- Sugar": 0.0,                                                             "--- Nip Nops": 0.0},
-        "Sugar":        {"--- Squeeze": 0.0,  "--- Sugar": 1.0,                                                             "--- Nip Nops": 0.0},
-
-        "Flat":         {"---- Pecs": 0.0,                                                                                  "---- Nip Nops": 0.0},
-        "Pecs":         {"---- Pecs": 1.0,                                                                                  "---- Nip Nops": 0.0}
-        }
-        return shape_presets[size]
-
-class ApplyShapes(Operator):
-    """This class is a mess"""
-
-    bl_idname = "yakit.apply_shapes"
-    bl_label = ""
-    bl_description = "Applies the selected option"
-    bl_options = {'UNDO'}
-    
-    key: StringProperty() # type: ignore
-    target: StringProperty() # type: ignore
-    preset: StringProperty() # type: ignore # shapes, chest_category, leg_size, gen, nails, other
-    desc: StringProperty() # type: ignore # shapes, chest_category, leg_size, gen, nails, other
-
-    @classmethod
-    def description(cls, context, properties):
-        if properties.desc in DevkitProps.ALL_SHAPES:
-            return DevkitProps.ALL_SHAPES[properties.desc][3]
-        else:
-            return "Applies the selected option"
-        
-    def execute(self, context):
-        self.props = get_devkit_props()
-        apply_mq = self.get_mannequin_category()
-        apply_target = "torso"
-
-        if apply_mq:
-            key_blocks = self.props.yam_mannequin.data.shape_keys.key_blocks
-            apply_target = "mq"
-        else:
-            key_blocks = self.get_key_blocks() 
-
-        self.get_function(key_blocks, apply_target)
-        return {"FINISHED"}
-
-    def get_key_blocks(self) -> ShapeKey:
-        match self.target:  
-            case "Legs":
-                return self.props.yam_legs.data.shape_keys.key_blocks
-
-            case "Hands":
-                return self.props.yam_hands.data.shape_keys.key_blocks
-
-            case "Feet":
-                return self.props.yam_feet.data.shape_keys.key_blocks
-            case _:
-                return self.props.yam_torso.data.shape_keys.key_blocks
-
-    def get_mannequin_category(self) -> bool:
-        props = get_devkit_props()
-        match self.target:   
-            case "Legs":
-                return props.shape_mq_legs_bool
-
-            case "Hands" | "Feet":
-                return props.shape_mq_other_bool
-            
-            case _:
-                return props.shape_mq_chest_bool
-
-    def get_function(self, key_blocks, apply_target:str) -> None:
-        match self.preset:
-            case "chest_category":
-                ApplyShapes.mute_chest_shapes(key_blocks, self.key)
-
-            case "leg_size":
-                ApplyShapes.mute_leg_shapes(key_blocks, self.key)
-            
-            case "gen":
-                ApplyShapes.mute_gen_shapes(key_blocks, self.key)
-
-            case "nails":
-                ApplyShapes.mute_nail_shapes(key_blocks, self.key)
-
-            case "other":   
-                if self.key == "Alt Hips" and self.target == "Legs" and not key_blocks["Mini"].mute:
-                    self.report({"ERROR"}, "Mini not compatible with alternate hips!")
-                    return {"CANCELLED"}
-                if self.key == "Alt Hips" and self.target == "Legs" and not key_blocks["Lavabod"].mute:
-                    self.report({"ERROR"}, "Lavabod not compatible with alternate hips!")
-                    return {"CANCELLED"}
-                if self.key == "Alt Hips" and self.target == "Legs" and not key_blocks["Masc"].mute:
-                    self.report({"ERROR"}, "Masc not compatible with alternate hips!")
-                    return {"CANCELLED"}
-                if self.target == "Torso" and self.key == "Lavabod":
-                    self.save_chest_sizes(key_blocks, apply_target)
-                self.toggle_other(key_blocks, self.key)
-            
-            case _:
-                size = self.props.chest_shape_enum
-                lava_sizes = ["Lava Omoi", "Teardrop", "Cupcake", "Sugar"]
-                
-                if size in lava_sizes and key_blocks["Lavabod"].mute:
-                    bpy.ops.yakit.apply_shapes(key="Lavabod", target="Torso", preset="other")
-                elif size not in lava_sizes and not key_blocks["Lavabod"].mute:
-                    bpy.ops.yakit.apply_shapes(key="Lavabod", target="Torso", preset="other")
-
-                category = get_chest_category(size)
-                shape_presets = get_shape_presets(size)
-
-                ApplyShapes.apply_shape_values(key_blocks, shape_presets)
-                ApplyShapes.mute_chest_shapes(key_blocks, category)
-            
-                self.force_update(apply_target)
-
-    def apply_shape_values(key_blocks: Object, shape_presets:dict[str, float]) -> None:
-        for key_name, value in shape_presets.items():
-            key_blocks[key_name].value = value
-            
-    def reset_shape_values(key_blocks: Object, category) -> None:
-        reset = get_shape_presets(category)
-        for key_name, value in reset.items():
-            key_blocks[key_name].value = value
-                             
-    def mute_chest_shapes(key_blocks, category) -> None:
-        category_mute_mapping = {
-            "Large": (True, True, True), 
-            "Medium": (False, True, True), 
-            "Small": (True, False, True),   
-            "Masc": (True, True, False),   
-        }
-
-        # Gets category and its bools
-        mute_medium, mute_small, mute_masc = category_mute_mapping.get(category, (True, True, True))
-
-        # Apply the mute states to the target
-        key_blocks["MEDIUM"].mute = mute_medium
-        key_blocks["SMALL"].mute = mute_small
-        key_blocks["MASC"].mute = mute_masc
-
-        if category == "Masc" and not key_blocks["Lavabod"].mute:
-            bpy.ops.yakit.apply_shapes(key="Lavabod", target="Torso", preset="other")
-
-    def mute_gen_shapes(key_blocks, gen: str) -> None:
-        gen_mute_mapping = {
-            "Gen A": (True, True, True), 
-            "Gen B": (False, True, True), 
-            "Gen C": (True, False, True),   
-            "Gen SFW": (True, True, False),   
-        }
-        # Gets category and its bools
-        mute_b, mute_c, mute_sfw = gen_mute_mapping.get(gen, (True, True, True))
-
-        # Apply the mute states to the target
-        key_blocks["Gen B"].mute = mute_b
-        key_blocks["Gen C"].mute = mute_c
-        key_blocks["Gen SFW"].mute = mute_sfw
-
-    def mute_leg_shapes(key_blocks, size: str) -> None:
-        size_mute_mapping = {
-            "Melon": (True, True, True, True, True), 
-            "Skull": (False, True, True, True, True), 
-            "Mini": (True, False, True, True, True),   
-            "Lava": (True, True, False, True, True),   
-            "Masc": (True, True, True, False, True),   
-            "Yanilla": (True, True, True, True, False),   
-        }
-
-        # Gets category and its bools
-        mute_skull, mute_mini, mute_lava, mute_masc, mute_yanilla= size_mute_mapping.get(size, (True, True, True, True, True))
-
-        # Apply the mute states to the target
-        key_blocks["Skull Crushers"].mute = mute_skull
-        key_blocks["Mini"].mute = mute_mini
-        key_blocks["Lavabod"].mute = mute_lava
-        key_blocks["Masc"].mute = mute_masc
-        key_blocks["Yanilla"].mute = mute_yanilla
-
-        # if not mute_mini:
-        #     key_blocks["Hip Dips (for YAB)"].mute = True
-        #     key_blocks["Less Hip Dips (for Rue)"].mute = True
-
-    def mute_nail_shapes(key_blocks, nails: str) -> None:
-        nails_mute_mapping = {
-            "Long": (True, True, True), 
-            "Short": (False, True, True), 
-            "Ballerina": (True, False, True), 
-            "Stabbies": (True, True, False), 
-             
-        }
-        # Gets category and its bools
-        mute_short, mute_ballerina, mute_stabbies = nails_mute_mapping.get(nails, (True, True, True))
-
-        # Apply the mute states to the target
-        key_blocks["Short Nails"].mute = mute_short
-        key_blocks["Ballerina"].mute = mute_ballerina
-        key_blocks["Stabbies"].mute = mute_stabbies
-    
-    def toggle_other(self, key_blocks, key: str) -> None:
-        if key_blocks[key].mute:
-            if self.target == "Hands" and key == "Rue":
-                key_blocks["Lavabod"].mute = True
-            if self.target == "Hands" and key == "Lavabod":
-                key_blocks["Rue"].mute = True
-            if self.target == "Torso" and key == "Lavabod":
-                key_blocks["MASC"].mute = True
-            if self.target in ("Legs", "Mannequin") and key == "Squish":
-                key_blocks["Squimsh"].mute = True
-            if self.target in ("Legs", "Mannequin") and key == "Squimsh":
-                key_blocks["Squish"].mute = True
-
-            key_blocks[key].mute = False
-        else:
-            key_blocks[key].mute = True
-
-    def save_chest_sizes(self, key_blocks, apply_target:str):
-        apply_mq = self.get_mannequin_category()
-        if key_blocks["Lavabod"].mute:
-            index  = 1
-            backup = 0
-        else:
-            index  = 0
-            backup = 1
-
-        if apply_mq:
-            presets = DevkitProps.mq_floats
-        else:
-            presets = DevkitProps.torso_floats
-
-        for key in key_blocks:
-            key_name = key.name
-        
-            for category in ["Large", "Medium", "Small"]:
-                if key_name in presets[backup][category]:
-                    presets[backup][category][key_name] = round(key.value, 2)
-                    break
-
-        for size in presets[index].keys():
-            preset = presets[index][size]
-            ApplyShapes.apply_shape_values(key_blocks, preset)
-        
-        self.force_update(apply_target)
-        
-    def force_update(self, apply_target:str):
-        if apply_target == "torso":
-            try:
-                bpy.context.view_layer.objects.active = self.props.yam_torso
-            except:
-                pass
-        else:
-            try:
-                bpy.context.view_layer.objects.active = self.props.yam_mannequin
-            except:
-                pass
-        bpy.context.view_layer.update()
-
-class ApplyVisibility(Operator):
-    bl_idname = "yakit.apply_visibility"
-    bl_label = ""
-    bl_description = "Toggles the visibility of the collection"
-    bl_options = {'UNDO'}
-
-    key: StringProperty() # type: ignore
-    target: StringProperty() # type: ignore
-
-    def execute(self, context):
-        collection = bpy.context.view_layer.layer_collection.children
-
-        match self.target:
-            case "Feet":
-                self.feet_visibility(collection)
-            case "Hands":
-                self.hand_visibility(collection)
-            case "Chest":
-                self.chest_visibility(collection)
-            case "Legs":
-                self.legs_visibility(collection)
-            case "Shape":
-                self.shape_visibility(collection)
-
-        return {"FINISHED"}
-    
-    def chest_visibility(self, collection) -> None:
-        if collection["Chest"].exclude:
-            collection["Chest"].exclude = False
-        else:
-            collection["Chest"].exclude = True
-
-    def legs_visibility(self, collection) -> None:
-        if collection["Legs"].exclude:
-            collection["Legs"].exclude = False
-        else:
-            collection["Legs"].exclude = True
-
-    def feet_visibility(self, collection) -> None:
-        if self.key == "Nails": 
-                if collection["Feet"].children["Toenails"].exclude:
-                    collection["Feet"].children["Toenails"].exclude = False
-                else:
-                    collection["Feet"].children["Toenails"].exclude = True
-
-        elif self.key == "Clawsies":
-            if collection["Feet"].children["Toe Clawsies"].exclude:
-                collection["Feet"].children["Toe Clawsies"].exclude = False
-            else:
-                collection["Feet"].children["Toe Clawsies"].exclude = True
-                
-        else:
-            if collection["Feet"].exclude:
-                collection["Feet"].exclude = False
-            else:
-                collection["Feet"].exclude = True
-    
-    def hand_visibility(self, collection) -> None:
-        if self.key == "Nails": 
-                if collection["Hands"].children["Nails"].exclude:
-                    collection["Hands"].children["Nails"].exclude = False
-                else:
-                    collection["Hands"].children["Nails"].exclude = True
-
-        elif self.key == "Clawsies":
-            if collection["Hands"].children["Clawsies"].exclude:
-                collection["Hands"].children["Clawsies"].exclude = False
-            else:
-                collection["Hands"].children["Clawsies"].exclude = True
-
-        else:
-            if collection["Hands"].exclude:
-                collection["Hands"].exclude = False
-            else:
-                collection["Hands"].exclude = True
-
-    def shape_visibility(self, collection) -> None:
-        if collection["Resources"].children["Controller"].children["Shape"].exclude:
-            collection["Resources"].children["Controller"].children["Shape"].exclude = False
-        else:
-            collection["Resources"].children["Controller"].children["Shape"].exclude = True
+def apply_shape_values(key_blocks: Object, shape_presets:dict[str, float]) -> None:
+    for key_name, value in shape_presets.items():
+        key_blocks[key_name].value = value
 
 def link_tri_modifier():
     for obj in bpy.data.objects:
@@ -1509,6 +1399,8 @@ class Overview(Panel):
         self.hands = self.props.yam_hands
         self.feet  = self.props.yam_feet
 
+        self.collection = self.props.collection_state
+
         options ={
             "Body": "OUTLINER_OB_ARMATURE",
             "Shape Keys": "MESH_DATA",
@@ -1560,7 +1452,6 @@ class Overview(Panel):
             # CHEST
 
             button = self.window.button_chest_shapes
-            chest_col = bpy.context.view_layer.layer_collection.children["Chest"].exclude
 
             box = layout.box()
             row = box.row(align=True)
@@ -1570,20 +1461,17 @@ class Overview(Panel):
             row.label(text="Chest")
             
             button_row = row.row(align=True)
-            icon = "HIDE_ON" if chest_col else "HIDE_OFF"
-            chest_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not chest_col)
-            chest_op.target = "Chest"
-            chest_op.key = ""
+            icon = "HIDE_OFF" if self.collection.chest else "HIDE_ON"
+            button_row.prop(self.collection, "chest", text="", icon=icon)
             button_row.prop(self.props, "shape_mq_chest_bool", text="", icon="ARMATURE_DATA")
             
 
             if button:
-                self.chest_shapes(layout, self.mq, self.torso)
+                self.chest_shapes(layout)
 
             # LEGS
 
             button = self.window.button_leg_shapes
-            leg_col = bpy.context.view_layer.layer_collection.children["Legs"].exclude
 
             box = layout.box()
             row = box.row(align=True)
@@ -1593,14 +1481,12 @@ class Overview(Panel):
             row.label(text="Legs")
             
             button_row = row.row(align=True)
-            icon = "HIDE_ON" if leg_col else "HIDE_OFF"
-            leg_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not leg_col)
-            leg_op.target = "Legs"
-            leg_op.key = ""
+            icon = "HIDE_OFF" if self.collection.legs else "HIDE_ON"
+            button_row.prop(self.collection, "legs", text="", icon=icon)
             button_row.prop(self.props, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
 
             if button:
-                self.leg_shapes(layout, self.mq, self.legs)
+                self.leg_shapes(layout)
             
             # OTHER
 
@@ -1616,7 +1502,7 @@ class Overview(Panel):
             button_row.prop(self.props, "shape_mq_other_bool", text="", icon="ARMATURE_DATA")
 
             if button:
-                self.other_shapes(layout, self.mq, self.hands, self.feet)
+                self.other_shapes(layout)
 
         # YAS MENU
         if (self.window.overview_ui == "Body" or self.window.overview_ui == "Shape Keys"):
@@ -1695,20 +1581,22 @@ class Overview(Panel):
             box = layout.box()
             row = box.row(align=True)
             col = row.column()
+            
             col.operator("wm.url_open", text="Devkit Guide").url = "https://docs.google.com/document/d/1WRKKUZZsAzDOTpt6F7iJkN8TDvwDBm0s0Z4DHdWqT_o/edit?usp=sharing"
             col.separator(factor=1, type="LINE")
+
             col.operator("wm.url_open", text="Discord").url = "https://discord.gg/bnuuybooty"
             col.operator("wm.url_open", text="Ko-Fi").url = "https://ko-fi.com/yetanothermodder"
             col.operator("wm.url_open", text="Bluesky").url = "https://bsky.app/profile/kejabnuuy.bsky.social"
+            
             col.separator(factor=1, type="LINE")
+
             col.operator("wm.url_open", text="Heliosphere").url = "https://heliosphere.app/user/Aleks"
             col.operator("wm.url_open", text="XMA").url = "https://www.xivmodarchive.com/user/26481"
 
         if self.window.overview_ui == "Info" or self.window.overview_ui == "Settings":
             devkit_ver = context.scene.ya_devkit_ver 
-            row = layout.row(align=True)
-            col = row.column(align=True)
-            col.alignment = "CENTER"
+            col = layout.column(align=True)
             row = col.row(align=True)
             row.alignment = "CENTER"
             if hasattr(context.scene, "ya_addon_ver"):
@@ -1719,7 +1607,7 @@ class Overview(Panel):
             row.alignment = "CENTER"
             row.label(text=f"Devkit Script Ver: {'.'.join(map(str, devkit_ver))}")
                        
-    def collection_context(self, context:Context) -> Object | None:
+    def collection_context(self) -> Object | None:
         # Links mesh name to the standard collections)
         body_part_collections = {
             "Torso": ['Chest', 'Nipple Piercings'],
@@ -1743,22 +1631,24 @@ class Overview(Panel):
         else:
             return None
 
-    def chest_shapes(self, layout: UILayout, mq: Object, torso: Object):
+    def chest_shapes(self, layout: UILayout):
         layout.separator(factor=0.1)  
         if self.props.shape_mq_chest_bool:
-            target = mq
+            target      = self.props.mannequin_state
+            target_keys = self.props.yam_mannequin.data.shape_keys.key_blocks
         else:
-            target = torso
+            target      = self.props.torso_state
+            target_keys = self.props.yam_torso.data.shape_keys.key_blocks
 
-        chest_size = self.props.torso_state.chest_size
-        lavabod    = self.props.torso_state.lavabod
+        chest_size = target.chest_size
+        lavabod    = target.lavabod
         row = layout.row(align=True)
-        row.prop(self.props.torso_state, "chest_size", expand=True, text="Size")
+        row.prop(target, "chest_size", expand=True, text="Size")
 
         row = layout.row(align=True)
-        row.prop(self.props.torso_state, "buff", text=f"{'Buff':<8}", icon="BLANK1")
-        row.prop(self.props.torso_state, "rue", text=f"{'Rue':<9}", icon="BLANK1")
-        row.prop(self.props.torso_state, "lavabod", text=f"{'Lavabod':<13}", icon="BLANK1")
+        row.prop(target, "buff", text=f"{'Buff':<8}", icon="BLANK1")
+        row.prop(target, "rue", text=f"{'Rue':<9}", icon="BLANK1")
+        row.prop(target, "lavabod", text=f"{'Lavabod':<13}", icon="BLANK1")
 
         box = layout.box()
         row = box.row()
@@ -1778,7 +1668,7 @@ class Overview(Panel):
         ]
 
         name_idx = 0
-        for key in target.data.shape_keys.key_blocks[1:]:
+        for key in target_keys[1:]:
             for condition, prefix, idx in prefix_conditions:
                 if condition and key.name.startswith(prefix):
                     name_idx = idx
@@ -1814,213 +1704,117 @@ class Overview(Panel):
 
         layout.separator(factor=0.1)
 
-    def leg_shapes(self, layout: UILayout, mq: Object, legs: Object):
+    def leg_shapes(self, layout: UILayout):
         layout.separator(factor=0.1)
-        if self.props.shape_mq_legs_bool:
-            target = mq
+        if self.props.shape_mq_chest_bool:
+            target = self.props.mannequin_state
         else:
-            target = legs
-
-        row = layout.row(align=True) 
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Genitalia:")
-        subrow = split.row(align=True)
-        subrow.prop(self.props.leg_state, "gen", expand=True, text="Size")
-
-        row = layout.row(align=True) 
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Leg Sizes:")
-        subrow = split.row(align=True)
-        subrow.prop(self.props.leg_state, "legs", expand=True, text="Size")
-
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Squish:")
-        subrow = split.row(align=True)
-        subrow.prop(self.props.leg_state, "squish", expand=True, text="Size")
+            target = self.props.leg_state
+        
+        options: list[tuple[str, str]] = [
+            ("Genitalia", "gen"),
+            ("Leg Sizes", "leg_size"),
+            ("Squish", "squish"),
+            ]
+        
+        for name, attr in options:
+            row = layout.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text=f"{name}:")
+            subrow = split.row(align=True)
+            subrow.prop(target, attr, text="Size", expand=True)
 
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
         split.label(text="Butt options:")
-        split.prop(self.props.leg_state, "small_butt", text=f"{'Small Butt':<14}", icon="BLANK1")
-        split.prop(self.props.leg_state, "soft_butt", text=f"{'Soft Butt':<14}", icon="BLANK1")
+        split.prop(target, "small_butt", text=f"{'Small Butt':<14}", icon="BLANK1")
+        split.prop(target, "soft_butt", text=f"{'Soft Butt':<14}", icon="BLANK1")
 
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
-        split.prop(self.props.leg_state, "alt_hips", text=f"{'Alt Hips':<13}", icon="BLANK1")
-        split.prop(self.props.leg_state, "rue", text=f"{'Rue':<9}", icon="BLANK1")
+        split.prop(target, "alt_hips", text=f"{'Alt Hips':<13}", icon="BLANK1")
+        split.prop(target, "rue", text=f"{'Rue':<9}", icon="BLANK1")
         
         layout.separator(factor=0.1)
 
     def yas_menu(self, layout: UILayout):
         layout.separator(factor=0.1)
  
-    def other_shapes(self, layout: UILayout, mq: Object, hands: Object, feet: Object):
+    def other_shapes(self, layout: UILayout):
+        layout.separator(factor=0.1)  
         if self.props.shape_mq_other_bool:
-            target = mq
-            target_f = mq
+            target      = self.props.mannequin_state
         else:
-            target = hands
-            target_f = feet
-            clawsies_mute = target.data.shape_keys.key_blocks["Curved"].mute
-            clawsies_depress = True if clawsies_mute else False
-            clawsies_col = bpy.context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude
-            toeclawsies_col = bpy.context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude
-
-        short_mute = target.data.shape_keys.key_blocks["Short Nails"].mute
-        ballerina_mute = target.data.shape_keys.key_blocks["Ballerina"].mute
-        stabbies_mute = target.data.shape_keys.key_blocks["Stabbies"].mute
-        rue_mute = target.data.shape_keys.key_blocks["Rue"].mute
-        lava_mute = target.data.shape_keys.key_blocks["Lavabod"].mute
-        rue_f_mute = target_f.data.shape_keys.key_blocks["Rue"].mute
-
-        long_depress = True if short_mute and ballerina_mute and stabbies_mute else False
-        short_depress = True if not short_mute else False
-        ballerina_depress = True if not ballerina_mute else False
-        stabbies_depress = True if not stabbies_mute else False
-        rue_depress = True if not rue_mute else False
-        lava_depress = True if not lava_mute else False
-        rue_f_depress = True if not rue_f_mute else False
-        hands_col = bpy.context.view_layer.layer_collection.children["Hands"].exclude
-        feet_col = bpy.context.view_layer.layer_collection.children["Feet"].exclude
-        nails_col = bpy.context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude
-        toenails_col = bpy.context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude
+            target      = self.props.hand_state
+            
+        options: list[tuple[str, str]] = [
+            ("Hands", "hand_size"),
+            ("Nails", "nails"),
+            ("Clawsies", "clawsies"),
+            ]
         
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Hands:")
-        button_row = split.row(align=True)
-        if not self.props.shape_mq_other_bool:
-            icon = "HIDE_ON" if hands_col else "HIDE_OFF"
-            hands_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not hands_col)
-            hands_op.target = "Hands"
-            hands_op.key = ""
-
-        operator = button_row.operator("yakit.apply_shapes", text= "Rue", depress=rue_depress)
-        operator.key = "Rue"
-        operator.target = "Hands"
-        operator.preset = "other"
-        operator.desc = "Rue Hands"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "Lava", depress=lava_depress)
-        operator.key = "Lavabod"
-        operator.target = "Hands"
-        operator.preset = "other"
-        operator.desc = "Lava Hands"
-
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text="Nails:")
-        button_row = split.row(align=True)
-        if not self.props.shape_mq_other_bool:
-            icon = "HIDE_ON" if nails_col else "HIDE_OFF"
-            operator = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not nails_col)
-            operator.key = "Nails"
-            operator.target = "Hands"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "Long", depress=long_depress)
-        operator.key = "Long"
-        operator.target = "Hands"
-        operator.preset = "nails"
-        operator.desc = "Long"
-        
-        operator = button_row.operator("yakit.apply_shapes", text= "Short", depress=short_depress)
-        operator.key = "Short"
-        operator.target = "Hands"
-        operator.preset = "nails"
-        operator.desc = "Short"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "Ballerina", depress=ballerina_depress)
-        operator.key = "Ballerina"
-        operator.target = "Hands"
-        operator.preset = "nails"
-        operator.desc = "Ballerina"
-
-        operator = button_row.operator("yakit.apply_shapes", text= "Stabbies", depress=stabbies_depress)
-        operator.key = "Stabbies"
-        operator.target = "Hands"
-        operator.preset = "nails"
-        operator.desc = "Stabbies"
-
-        if not self.props.shape_mq_other_bool:
+        for name, attr in options:
+            if name == "Clawsies" and self.props.shape_mq_other_bool:
+                continue
             row = layout.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = "RIGHT"
-            split.label(text="Clawsies:")
-            button_row = split.row(align=True)
-            icon = "HIDE_ON" if clawsies_col else "HIDE_OFF"
-            operator = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not clawsies_col)
-            operator.key = "Clawsies"
-            operator.target = "Hands"
+            split.label(text=f"{name}:")
+            subrow = split.row(align=True)
+            if not self.props.shape_mq_other_bool:
+                icon = "HIDE_OFF" if getattr(self.collection, name.lower()) else "HIDE_ON"
+                subrow.prop(self.collection, name.lower(), text="", icon=icon)
 
-            operator = button_row.operator("yakit.apply_shapes", text= "Straight", depress=clawsies_depress)
-            operator.key = "Curved"
-            operator.target = "Hands"
-            operator.preset = "other"
-            operator.desc = "Straight"
-
-            operator = button_row.operator("yakit.apply_shapes", text= "Curved", depress=not clawsies_depress)
-            operator.key = "Curved"
-            operator.target = "Hands"
-            operator.preset = "other"
-            operator.desc = "Curved"
+            subrow.prop(target, attr, text="Size", expand=True)
     
         layout.separator(type="LINE")
+
+        if self.props.shape_mq_other_bool:
+            target      = self.props.mannequin_state
+            target_keys = self.props.yam_mannequin.data.shape_keys.key_blocks
+        else:
+            target      = self.props.feet_state
+            target_keys = self.props.yam_feet.data.shape_keys.key_blocks
 
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
-        split.label(text="Feet:")
-        button_row = split.row(align=True)
+        split.label(text=f"Rue:")
+        subrow = split.row(align=True)
         if not self.props.shape_mq_other_bool:
-            icon = "HIDE_ON" if feet_col else "HIDE_OFF"
-            feet_op = button_row.operator("yakit.apply_visibility", text="", icon=icon, depress=not feet_col)
-            feet_op.target = "Feet"
-            feet_op.key = ""
+            icon = "HIDE_OFF" if self.collection.feet else "HIDE_ON"
+            subrow.prop(self.collection, "feet", text="", icon=icon)
 
-        operator = button_row.operator("yakit.apply_shapes", text= "Rue", depress=rue_f_depress)
-        operator.key = "Rue"
-        operator.target = "Feet"
-        operator.preset = "other"
-        operator.desc = "Rue Feet"
+        subrow.prop(target, "rue_feet", text=f"{'Rue':<9}", icon="BLANK1")
 
-        if not self.props.shape_mq_other_bool:
-            row = layout.row(align=True)
-            col = row.column(align=True)
-            row = col.row(align=True)
-            split = row.split(factor=0.25, align=True)
-            split.alignment = 'RIGHT'  # Align label to the right
-            split.label(text="Nails/Claws:")
-            icon = "HIDE_ON" if toenails_col else "HIDE_OFF"
-            nail_op = split.operator("yakit.apply_visibility", text="", icon=icon, depress=not toenails_col)
-            nail_op.key = "Nails"
-            nail_op.target = "Feet"
-            icon = "HIDE_ON" if toeclawsies_col else "HIDE_OFF"
-            claw_op = split.operator("yakit.apply_visibility", text="", icon=icon, depress=not toeclawsies_col)
-            claw_op.key = "Clawsies"
-            claw_op.target = "Feet"
+        row = layout.row(align=True)
+        split = row.split(factor=0.25, align=True)
+        split.alignment = "RIGHT"
+        split.label(text=f"")
+        subrow = split.row(align=True)
 
-        feet_keys = target_f.data.shape_keys.key_blocks
+        icon = "HIDE_OFF" if self.collection.toenails else "HIDE_ON"
+        subrow.prop(self.collection, "toenails", icon=icon, text="Nails")
+
+        icon = "HIDE_OFF" if self.collection.toe_clawsies else "HIDE_ON"
+        subrow.prop(self.collection, "toe_clawsies", icon=icon, text="Clawsies")
+
         box = layout.box()
-        row = box.row(align=True)
+        row = box.row()
+        
         split = row.split(factor=0.25)
         col = split.column(align=True)
         col.alignment = "RIGHT"
-        col.label(text="Heels:")
-        col.label(text="Cinderella:")
-        col.label(text="Mini Heels:")
-        
         col2 = split.column(align=True)
-        col2.prop(feet_keys["Heels"], "value", text=f"{feet_keys['Heels'].value*100:.0f}%")
-        col2.prop(feet_keys["Cinderella"], "value", text=f"{feet_keys['Cinderella'].value*100:.0f}%")
-        col2.prop(feet_keys["Mini Heels"], "value", text=f"{feet_keys['Mini Heels'].value*100:.0f}%")
 
+        heel_keys = ["Heels", "Cinderella", "Mini Heels"]
+        for key in target_keys[1:]:
+            if key.name not in heel_keys:
+                continue
+            col.label(text=f"{key.name}:")
+            col2.prop(key, "value", text=f"{key.value*100:.0f}%")
 
         layout.separator(factor=0.1)
    
@@ -2035,16 +1829,19 @@ class Overview(Panel):
             operator.panel = panel
 
 CLASSES = [
-    CollectionState,
+    EnabledCollection,
     ObjectState,
     AssignControllers,
     DevkitWindowProps,
+    CollectionState,
+    SubKeyValues,
     TorsoState,
     LegState,
+    HandState,
+    FeetState,
+    MannequinState,
     DevkitProps,
     CollectionManager,
-    ApplyShapes,
-    ApplyVisibility,
     TriangulateLink,
     ResetQueue,
     PanelCategory,
