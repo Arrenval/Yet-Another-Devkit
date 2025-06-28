@@ -1058,10 +1058,40 @@ class DevkitProps(PropertyGroup):
                 items.append((name, name, description))
         return items
 
+    def _apply_preset(self, context) -> None:
+        size       = self.chest_shape_enum
+        preset     = get_shape_presets(size)
+        lava_sizes = ("Lava Omoi", "Teardrop", "Cupcake", "Sugar")
+        category   = self.ALL_SHAPES[size][2]
+
+        category_to_enum = {
+            "Large":  "0",
+            "Medium": "1",
+            "Small":  "2",
+            "Masc":   "3"
+        }
+
+        if self.shape_mq_chest_bool:
+            key_blocks = self.yam_mannequin.data.shape_keys.key_blocks
+            state = self.mannequin_state
+        else:
+            key_blocks = self.yam_torso.data.shape_keys.key_blocks
+            state = self.torso_state
+        
+        if size in lava_sizes:
+            state.lavabod = True
+        else:
+            state.lavabod = False
+        
+        state.chest_size = category_to_enum[category]
+        for key_name, value in preset.items():
+            key_blocks[key_name].value = value
+
     chest_shape_enum: EnumProperty(
         name= "",
         description= "Select a size",
-        items=_get_listable_shapes
+        items=_get_listable_shapes,
+        update=_apply_preset
         )   # type: ignore
     
     shape_mq_chest_bool: BoolProperty(
