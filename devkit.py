@@ -1222,16 +1222,17 @@ class CollectionManager(Operator):
             recursively_toggle_exclude(layer_collection, collection, exclude)
 
 
-
-def apply_shape_values(key_blocks: Object, shape_presets:dict[str, float]) -> None:
-    for key_name, value in shape_presets.items():
-        key_blocks[key_name].value = value
-
 def link_tri_modifier():
     for obj in bpy.data.objects:
         tri_mod = [modifier for modifier in obj.modifiers if modifier.type == 'TRIANGULATE']
         for modifier in tri_mod:
             _add_tri_driver(modifier)
+
+def unlink_tri_modifier():
+    for obj in bpy.data.objects:
+        tri_mod = [modifier for modifier in obj.modifiers if modifier.type == 'TRIANGULATE']
+        for modifier in tri_mod:
+            modifier.driver_remove("show_viewport")
 
 def _add_tri_driver(modifier:ShapeKey) -> None:
         modifier.driver_remove("show_viewport")
@@ -1255,41 +1256,34 @@ class TriangulateLink(Operator):
         link_tri_modifier()
         return {'FINISHED'}
 
-class ResetQueue(Operator):
-    bl_idname = "yakit.reset_queue"
-    bl_label = "Export"
-    bl_description = "Resets Export UI if it ran into an error"
-
-    @classmethod
-    def poll(cls, context):
-        return hasattr(context.scene, "ya_file_props")
+class DeactivateKit(Operator):
+    bl_idname = "yakit.deactivate"
+    bl_label = "Deactivate Devkit"
+    bl_description = "Resets all model drivers and deactivates devkit"
 
     def execute(self, context):
-        bpy.context.scene.ya_file_props.export_total = 0
-        return {'FINISHED'}
-        
-class PanelCategory(Operator):
-    bl_idname = "yakit.set_ui"
-    bl_label = "Select the menu."
-    bl_description = "Changes the panel menu"
+        global devkit_registered
+        props = get_devkit_props()
 
-    overview: StringProperty() # type: ignore
-    panel: StringProperty() # type: ignore
-
-    def execute(self, context):
-        match self.panel:
-            case "overview":
-                get_window_props().overview_ui = self.overview
+        unlink_tri_modifier()
+        props.yam_torso.data.shape_keys.animation_data_clear()
+        props.yam_legs.data.shape_keys.animation_data_clear()
+        props.yam_hands.data.shape_keys.animation_data_clear()
+        props.yam_feet.data.shape_keys.animation_data_clear()
+        props.yam_mannequin.data.shape_keys.animation_data_clear()
+        unregister()
+        devkit_registered = False
         return {'FINISHED'}
 
-def get_conditional_icon(condition: bool, invert: bool=False, if_true: str="CHECKMARK", if_false: str="X"):
+
+def get_conditional_icon(condition: bool, invert: bool=False, if_true: str='CHECKMARK', if_false: str='X'):
     if invert:
         return if_true if not condition else if_false
     else:
         return if_true if condition else if_false
 
-def aligned_row(layout: UILayout, label: str, attr: str, prop=None, prop_str: str="", label_icon: str="NONE", attr_icon: str="NONE", factor:float=0.25, emboss: bool=True, alignment: str="RIGHT") -> UILayout:
-    """
+def aligned_row(layout: UILayout, label: str, attr: str, prop=None, prop_str: str="", label_icon: str='NONE', attr_icon: str='NONE', factor:float=0.25, emboss: bool=True, alignment: str="RIGHT") -> UILayout:
+    '''
     Create a row with a label in the main split and a prop or text label in the second split. Returns the row if you want to append extra items.
     Args:
         label: Row name.
@@ -1297,7 +1291,7 @@ def aligned_row(layout: UILayout, label: str, attr: str, prop=None, prop_str: st
         container: Object that contains the necessary props.
         factor: Split row ratio.
         alignment: Right aligned by default.
-    """
+    '''
     row = layout.row(align=True)
     split = row.split(factor=factor, align=True)
     split.alignment = alignment
@@ -1783,8 +1777,7 @@ CLASSES = [
     DevkitProps,
     CollectionManager,
     TriangulateLink,
-    ResetQueue,
-    PanelCategory,
+    DeactivateKit,
     Overview
 ]
 
