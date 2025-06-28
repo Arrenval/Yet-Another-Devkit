@@ -662,6 +662,12 @@ class SubKeyValues(PropertyGroup):
         value: float
 
 class TorsoState(PropertyGroup):
+
+    MANNEQUIN: BoolProperty(
+        name="Mannequin",
+        default=False,
+        options={'HIDDEN', 'SKIP_SAVE'}  
+    ) # type: ignore
     
     def _masc_lavabod(self, context) -> None:
         if self.lavabod and self.chest_size == "3":
@@ -707,12 +713,6 @@ class TorsoState(PropertyGroup):
 
         if self.lavabod and not sizes:
             key_blocks["- Squeeze"].value = 0.0
-
-    MANNEQUIN: BoolProperty(
-        name="Mannequin",
-        default=False,
-        options={'HIDDEN', 'SKIP_SAVE'}  # Hidden from UI and not saved
-    ) # type: ignore
 
     chest_size: EnumProperty(
         name="",
@@ -766,8 +766,8 @@ class LegState(PropertyGroup):
             self.alt_hips = False
     
     def _change_legs(self, context) -> None:
-        if self.alt_hips and int(self.legs) > 2:
-            self.legs = "0"
+        if self.alt_hips and int(self.leg_size) > 2:
+            self.leg_size = "0"
 
     gen: EnumProperty(
         name="",
@@ -897,7 +897,7 @@ class MannequinState(TorsoState, LegState, HandState, FeetState):
     MANNEQUIN: BoolProperty(
         name="Mannequin",
         default=True,
-        options={'HIDDEN', 'SKIP_SAVE'}  # Hidden from UI and not saved
+        options={'HIDDEN', 'SKIP_SAVE'}
     ) # type: ignore
     pass
     
