@@ -100,16 +100,6 @@ def create_key_link_driver(target: Driver, source: Key, prop: str, data_path: st
     var.targets[0].id = source
     var.targets[0].data_path = data_path
 
-class AssignControllers(Operator):
-    bl_idname = "yakit.assign_controllers"
-    bl_label = "Assign Controller Meshes"
-    bl_description = "Automatically find and assign controller meshes"
-    
-    def execute(self, context):
-        assign_controller_meshes()
-        self.report({'INFO'}, "Controller meshes updated!")
-        return {'FINISHED'}
-
 class ModelDrivers():
 
     def __init__(self):
@@ -996,30 +986,6 @@ class DevkitWindowProps(PropertyGroup):
         overview_ui: str
         devkit_triangulation: bool
 
-def get_shape_presets(size: str) -> dict[str, float]:
-        shape_presets = {
-        "Large":        {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        "Omoi":         {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 1.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        "Sugoi Omoi":   {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 1.0, "- Uranus Redux": 0.0, "- Sag": 1.0, "- Nip Nops": 0.0},
-        "Uranus":       {"- Squeeze": 0.0, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 1.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        "Lava Omoi":    {"- Squeeze": 0.0, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
-        
-        "Medium":       {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
-        "Sayonara":     {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 1.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
-        "Tsukareta":    {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.6, "-- Nip Nops": 0.0},
-        "Tsukareta+":   {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 1.0, "-- Nip Nops": 0.0},
-        "Mini":         {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 1.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
-        "Teardrop":     {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
-
-        "Small":        {"--- Squeeze": 0.0,                                                                                "--- Nip Nops": 0.0},
-        "Cupcake":      {"--- Squeeze": 0.0,  "--- Sugar": 0.0,                                                             "--- Nip Nops": 0.0},
-        "Sugar":        {"--- Squeeze": 0.0,  "--- Sugar": 1.0,                                                             "--- Nip Nops": 0.0},
-
-        "Flat":         {"---- Pecs": 0.0,                                                                                  "---- Nip Nops": 0.0},
-        "Pecs":         {"---- Pecs": 1.0,                                                                                  "---- Nip Nops": 0.0}
-        }
-        return shape_presets[size]
-
 class DevkitProps(PropertyGroup):
     
     #       Shapes:         (Name,           Slot/Misc,      Category, Description,                                           Body,             Shape Key)
@@ -1391,6 +1357,16 @@ class DeactivateKit(Operator):
         devkit_registered = False
         return {'FINISHED'}
 
+class AssignControllers(Operator):
+    bl_idname = "yakit.assign_controllers"
+    bl_label = "Assign Controller Meshes"
+    bl_description = "Automatically find and assign controller meshes"
+    
+    def execute(self, context):
+        assign_controller_meshes()
+        self.report({'INFO'}, "Controller meshes updated!")
+        return {'FINISHED'}
+
 
 def get_conditional_icon(condition: bool, invert: bool=False, if_true: str='CHECKMARK', if_false: str='X'):
     if invert:
@@ -1736,7 +1712,7 @@ class Overview(Panel):
 
     def leg_shapes(self, layout: UILayout):
         layout.separator(factor=0.1)
-        if self.props.shape_mq_chest_bool:
+        if self.props.shape_mq_legs_bool:
             target = self.props.mannequin_state
         else:
             target = self.props.leg_state
@@ -1863,6 +1839,7 @@ CLASSES = [
     CollectionManager,
     TriangulateLink,
     DeactivateKit,
+    AssignControllers,
     Overview
 ]
 
