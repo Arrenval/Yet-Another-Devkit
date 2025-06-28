@@ -478,17 +478,60 @@ class CollectionState(PropertyGroup):
     def update_pubes(self, context: Context):
         context.view_layer.layer_collection.children["Legs"].children["Pubes"].exclude = not self.pubes
     
+    def update_hands(self, context: Context):
+        if not self.hands:
+            self.nails    = False
+            self.clawsies = False
+
+        context.view_layer.layer_collection.children["Hands"].exclude = not self.hands
+
+        if self.hands:
+            self.nails    = True
+            self.clawsies = False
+
     def update_nails(self, context: Context):
+        if self.nails:
+            self.clawsies = False
+        elif self.hands:
+            self.clawsies = True
         context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = not self.nails
     
     def update_clawsies(self, context: Context):
+        if self.clawsies:
+            self.nails = False
+        elif self.hands:
+            self.nails = True
+
         context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = not self.clawsies
     
     def update_practical(self, context: Context):
         context.view_layer.layer_collection.children["Hands"].children["Nails"].children["Practical Uses"].exclude = not self.practical
     
     def update_feet(self, context: Context):
+        if not self.feet:
+            self.toenails = False
+            self.toe_clawsies = False
+            
         context.view_layer.layer_collection.children["Feet"].exclude = not self.feet
+
+        if self.feet:
+            self.toenails = True
+            self.toe_clawsies = False
+    
+    def update_toe_clawsies(self, context: Context):
+        if self.toe_clawsies:
+            self.toenails = False
+        elif self.feet:
+            self.toenails = True
+
+        context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude = not self.toe_clawsies
+    
+    def update_toenails(self, context: Context):
+        if self.toenails:
+            self.toe_clawsies = False
+        elif self.feet:
+            self.toe_clawsies = True
+        context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude = not self.toenails
     
     def update_mannequin(self, context: Context):
         context.view_layer.layer_collection.children["Mannequin"].exclude = not self.mannequin
@@ -514,23 +557,6 @@ class CollectionState(PropertyGroup):
             data_sources.exclude    = not self.export
             resources.exclude       = not self.export
             resources.hide_viewport = self.export
-
-    def update_toe_clawsies(self, context: Context):
-        context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude = not self.toe_clawsies
-    
-    def update_toenails(self, context: Context):
-        context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude = not self.toenails
-    
-    def update_hands(self, context: Context):
-        if not self.hands:
-            self.nails    = False
-            self.clawsies = False
-            context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = True
-            context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = True
-        else:
-            self.nails = True
-
-        context.view_layer.layer_collection.children["Hands"].exclude = not self.hands
 
 
     skeleton: BoolProperty(
@@ -619,7 +645,7 @@ class CollectionState(PropertyGroup):
 
     mannequin: BoolProperty(
         name="",
-        description="toesies",
+        description="mannequin",
         default=False,
         update=update_mannequin
     ) # type: ignore
@@ -894,6 +920,7 @@ class MannequinState(TorsoState, LegState, HandState, FeetState):
         default=True,
         options={'HIDDEN', 'SKIP_SAVE'}
     ) # type: ignore
+
     pass
     
 
@@ -1487,8 +1514,12 @@ class Overview(Panel):
             row.label(text="Chest")
             
             button_row = row.row(align=True)
-            icon = "HIDE_OFF" if self.collection.chest else "HIDE_ON"
-            button_row.prop(self.collection, "chest", text="", icon=icon)
+            if not self.props.shape_mq_chest_bool:
+                icon = "LINKED" if self.collection.nipple_piercings else "UNLINKED"
+                button_row.prop(self.collection, "nipple_piercings", text="", icon=icon)
+            prop = "mannequin" if self.props.shape_mq_chest_bool else "chest"
+            icon = "HIDE_OFF" if getattr(self.collection, prop) else "HIDE_ON"
+            button_row.prop(self.collection, prop, text="", icon=icon)
             button_row.prop(self.props, "shape_mq_chest_bool", text="", icon="ARMATURE_DATA")
             
 
@@ -1507,8 +1538,9 @@ class Overview(Panel):
             row.label(text="Legs")
             
             button_row = row.row(align=True)
-            icon = "HIDE_OFF" if self.collection.legs else "HIDE_ON"
-            button_row.prop(self.collection, "legs", text="", icon=icon)
+            prop = "mannequin" if self.props.shape_mq_legs_bool else "legs"
+            icon = "HIDE_OFF" if getattr(self.collection, prop) else "HIDE_ON"
+            button_row.prop(self.collection, prop, text="", icon=icon)
             button_row.prop(self.props, "shape_mq_legs_bool", text="", icon="ARMATURE_DATA")
 
             if button:
@@ -1525,6 +1557,9 @@ class Overview(Panel):
             row.label(text="Hands/Feet")
             
             button_row = row.row(align=True)
+            if self.props.shape_mq_other_bool:
+                icon = "HIDE_OFF" if self.collection.mannequin else "HIDE_ON"
+                button_row.prop(self.collection, "mannequin", text="", icon=icon)
             button_row.prop(self.props, "shape_mq_other_bool", text="", icon="ARMATURE_DATA")
 
             if button:
@@ -1795,17 +1830,18 @@ class Overview(Panel):
 
         subrow.prop(target, "rue_feet", text=f"{'Rue':<9}", icon="BLANK1")
 
-        row = layout.row(align=True)
-        split = row.split(factor=0.25, align=True)
-        split.alignment = "RIGHT"
-        split.label(text=f"")
-        subrow = split.row(align=True)
+        if not self.props.shape_mq_other_bool:
+            row = layout.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = "RIGHT"
+            split.label(text=f"")
+            subrow = split.row(align=True)
 
-        icon = "HIDE_OFF" if self.collection.toenails else "HIDE_ON"
-        subrow.prop(self.collection, "toenails", icon=icon, text="Nails")
+            icon = "HIDE_OFF" if self.collection.toenails else "HIDE_ON"
+            subrow.prop(self.collection, "toenails", icon=icon, text="Nails")
 
-        icon = "HIDE_OFF" if self.collection.toe_clawsies else "HIDE_ON"
-        subrow.prop(self.collection, "toe_clawsies", icon=icon, text="Clawsies")
+            icon = "HIDE_OFF" if self.collection.toe_clawsies else "HIDE_ON"
+            subrow.prop(self.collection, "toe_clawsies", icon=icon, text="Clawsies")
 
         box = layout.box()
         row = box.row()
