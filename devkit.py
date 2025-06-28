@@ -469,145 +469,34 @@ class CollectionState(PropertyGroup):
 
     def update_skeleton(self, context: Context):
         context.view_layer.layer_collection.children["Skeleton"].exclude = not self.skeleton
-
-    skeleton: BoolProperty(
-        name="",
-        description="Skeletons reside here",
-        default=True,
-        update=update_skeleton
-    ) # type: ignore
-
+    
     def update_chest(self, context: Context):
         context.view_layer.layer_collection.children["Chest"].exclude = not self.chest
-
-    chest: BoolProperty(
-        name="",
-        description="bob",
-        default=True,
-        update=update_chest
-    ) # type: ignore
-
+    
     def update_nipple_piercings(self, context: Context):
         context.view_layer.layer_collection.children["Chest"].children["Nipple Piercings"].exclude = not self.nipple_piercings
-
-    nipple_piercings: BoolProperty(
-        name="",
-        description="Ouchies",
-        default=False,
-        update=update_nipple_piercings
-    ) # type: ignore
-
+    
     def update_legs(self, context: Context):
         context.view_layer.layer_collection.children["Legs"].exclude = not self.legs
 
-    legs: BoolProperty(
-        name="",
-        description="Leggies",
-        default=False,
-        update=update_legs
-    ) # type: ignore
-    
     def update_pubes(self, context: Context):
         context.view_layer.layer_collection.children["Legs"].children["Pubes"].exclude = not self.pubes
-
-    pubes: BoolProperty(
-        name="",
-        description="pubs",
-        default=False,
-        update=update_pubes
-    ) # type: ignore
-
-    def update_hands(self, context: Context):
-        if not self.hands:
-            self.nails    = False
-            self.clawsies = False
-            context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = True
-            context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = True
-        else:
-            self.nails = True
-
-        context.view_layer.layer_collection.children["Hands"].exclude = not self.hands
-
-        
-    hands: BoolProperty(
-        name="",
-        description="jazz",
-        default=False,
-        update=lambda self, context: self.update_hands(context)
-    ) # type: ignore
-
+    
     def update_nails(self, context: Context):
         context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = not self.nails
-
-    nails: BoolProperty(
-        name="",
-        description="stabbies",
-        default=False,
-        update=update_nails
-    ) # type: ignore
-
+    
     def update_clawsies(self, context: Context):
         context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = not self.clawsies
-
-    clawsies: BoolProperty(
-        name="",
-        description="most stabbies",
-        default=False,
-        update=update_clawsies
-    ) # type: ignore
-
+    
     def update_practical(self, context: Context):
         context.view_layer.layer_collection.children["Hands"].children["Nails"].children["Practical Uses"].exclude = not self.practical
-
-    practical: BoolProperty(
-        name="",
-        description="stabbies",
-        default=False,
-        update=update_practical
-    ) # type: ignore
-
+    
     def update_feet(self, context: Context):
         context.view_layer.layer_collection.children["Feet"].exclude = not self.feet
-
-
-
-    feet: BoolProperty(
-        name="",
-        description="toesies",
-        default=False,
-        update=update_feet
-    ) # type: ignore
-
-    def update_toenails(self, context: Context):
-        context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude = not self.toenails
-
-    toenails: BoolProperty(
-        name="",
-        description="just nails",
-        default=False,
-        update=update_toenails
-    ) # type: ignore
-
-    def update_toe_clawsies(self, context: Context):
-        context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude = not self.toe_clawsies
-
-    toe_clawsies: BoolProperty(
-        name="",
-        description="more clawsies",
-        default=False,
-        update=update_toe_clawsies
-    ) # type: ignore
-
+    
     def update_mannequin(self, context: Context):
         context.view_layer.layer_collection.children["Mannequin"].exclude = not self.mannequin
-
-    mannequin: BoolProperty(
-        name="",
-        description="toesies",
-        default=False,
-        update=update_mannequin
-    ) # type: ignore
-
+    
     def update_export(self, context: Context):
         resources    = context.view_layer.layer_collection.children["Resources"]
         data_sources = resources.children["Data Sources"]
@@ -629,6 +518,115 @@ class CollectionState(PropertyGroup):
             data_sources.exclude    = not self.export
             resources.exclude       = not self.export
             resources.hide_viewport = self.export
+
+    def update_toe_clawsies(self, context: Context):
+        context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude = not self.toe_clawsies
+    
+    def update_toenails(self, context: Context):
+        context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude = not self.toenails
+    
+    def update_hands(self, context: Context):
+        if not self.hands:
+            self.nails    = False
+            self.clawsies = False
+            context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = True
+            context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = True
+        else:
+            self.nails = True
+
+        context.view_layer.layer_collection.children["Hands"].exclude = not self.hands
+
+
+    skeleton: BoolProperty(
+        name="",
+        description="Skeletons reside here",
+        default=True,
+        update=update_skeleton
+    ) # type: ignore
+
+    chest: BoolProperty(
+        name="",
+        description="bob",
+        default=True,
+        update=update_chest
+    ) # type: ignore
+
+    nipple_piercings: BoolProperty(
+        name="",
+        description="Ouchies",
+        default=False,
+        update=update_nipple_piercings
+    ) # type: ignore
+
+    legs: BoolProperty(
+        name="",
+        description="Leggies",
+        default=False,
+        update=update_legs
+    ) # type: ignore
+    
+    pubes: BoolProperty(
+        name="",
+        description="pubs",
+        default=False,
+        update=update_pubes
+    ) # type: ignore
+
+    hands: BoolProperty(
+        name="",
+        description="jazz",
+        default=False,
+        update=lambda self, context: self.update_hands(context)
+    ) # type: ignore
+
+    nails: BoolProperty(
+        name="",
+        description="stabbies",
+        default=False,
+        update=update_nails
+    ) # type: ignore
+
+    clawsies: BoolProperty(
+        name="",
+        description="most stabbies",
+        default=False,
+        update=update_clawsies
+    ) # type: ignore
+
+    practical: BoolProperty(
+        name="",
+        description="stabbies",
+        default=False,
+        update=update_practical
+    ) # type: ignore
+
+    feet: BoolProperty(
+        name="",
+        description="toesies",
+        default=False,
+        update=update_feet
+    ) # type: ignore
+
+    toenails: BoolProperty(
+        name="",
+        description="just nails",
+        default=False,
+        update=update_toenails
+    ) # type: ignore
+
+    toe_clawsies: BoolProperty(
+        name="",
+        description="more clawsies",
+        default=False,
+        update=update_toe_clawsies
+    ) # type: ignore
+
+    mannequin: BoolProperty(
+        name="",
+        description="toesies",
+        default=False,
+        update=update_mannequin
+    ) # type: ignore
 
     export: BoolProperty(
         name="",
@@ -663,43 +661,11 @@ class SubKeyValues(PropertyGroup):
         value: float
 
 class TorsoState(PropertyGroup):
-
-    MANNEQUIN: BoolProperty(
-        name="Mannequin",
-        default=False,
-        options={'HIDDEN', 'SKIP_SAVE'}  # Hidden from UI and not saved
-    ) # type: ignore
-
+    
     def _masc_lavabod(self, context) -> None:
         if self.lavabod and self.chest_size == "3":
             self.lavabod = False
-
-
-    chest_size: EnumProperty(
-        name="",
-        description="Choose a chest size",
-        default="0",
-        items=[
-            ("0", "Large", "Standard Large"),
-            ("1", "Medium", "Standard Medium"),
-            ("2", "Small", "Standard Small"),
-            ("3", "Masc", "Yet Another Masc"),
-        ],
-        update=_masc_lavabod
-        ) # type: ignore
-
-    buff: BoolProperty(
-        name="",
-        description="Adds muscle",
-        default=False,
-    ) # type: ignore
-
-    rue: BoolProperty(
-        name="",
-        description="Adds tummy",
-        default=False,
-    ) # type: ignore
-
+    
     def _save_sub_keys(self, context) -> None:
         if self.lavabod and self.chest_size == "3":
             self.chest_size = "2"
@@ -741,6 +707,37 @@ class TorsoState(PropertyGroup):
         if self.lavabod and not sizes:
             key_blocks["- Squeeze"].value = 0.0
 
+    MANNEQUIN: BoolProperty(
+        name="Mannequin",
+        default=False,
+        options={'HIDDEN', 'SKIP_SAVE'}  # Hidden from UI and not saved
+    ) # type: ignore
+
+    chest_size: EnumProperty(
+        name="",
+        description="Choose a chest size",
+        default="0",
+        items=[
+            ("0", "Large", "Standard Large"),
+            ("1", "Medium", "Standard Medium"),
+            ("2", "Small", "Standard Small"),
+            ("3", "Masc", "Yet Another Masc"),
+        ],
+        update=_masc_lavabod
+        ) # type: ignore
+
+    buff: BoolProperty(
+        name="",
+        description="Adds muscle",
+        default=False,
+    ) # type: ignore
+
+    rue: BoolProperty(
+        name="",
+        description="Adds tummy",
+        default=False,
+    ) # type: ignore
+
     lavabod: BoolProperty(
         name="",
         description="Lavabod",
@@ -763,6 +760,14 @@ class TorsoState(PropertyGroup):
 
 class LegState(PropertyGroup):
 
+    def _no_hips_dips(self, context) -> None:
+        if int(self.leg_size) > 2 and self.alt_hips:
+            self.alt_hips = False
+    
+    def _change_legs(self, context) -> None:
+        if self.alt_hips and int(self.legs) > 2:
+            self.legs = "0"
+
     gen: EnumProperty(
         name="",
         description="Choose a genitalia type",
@@ -774,10 +779,6 @@ class LegState(PropertyGroup):
             ("3", "Gen SFW", "Barbie doll"),
         ]
         ) # type: ignore
-    
-    def _no_hips_dips(self, context) -> None:
-        if int(self.leg_size) > 2 and self.alt_hips:
-            self.alt_hips = False
     
     leg_size: EnumProperty(
         name="",
@@ -811,10 +812,6 @@ class LegState(PropertyGroup):
         description="Less perky butt",
         default=False,
     ) # type: ignore
-
-    def _change_legs(self, context) -> None:
-        if self.alt_hips and int(self.legs) > 2:
-            self.legs = "0"
 
     alt_hips: BoolProperty(
         name="",
