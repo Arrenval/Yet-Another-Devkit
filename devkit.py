@@ -664,14 +664,6 @@ class SubKeyValues(PropertyGroup):
         name : str
         value: float
 
-class ObjectState(PropertyGroup):
-    name: StringProperty() # type: ignore
-    hide: BoolProperty() # type: ignore
-
-    if TYPE_CHECKING:
-        name: str
-        hide: bool
-
 class TorsoState(PropertyGroup):
 
     MANNEQUIN: BoolProperty(
@@ -679,6 +671,11 @@ class TorsoState(PropertyGroup):
         default=False,
         options={'HIDDEN', 'SKIP_SAVE'}  # Hidden from UI and not saved
     ) # type: ignore
+
+    def _masc_lavabod(self, context) -> None:
+        if self.lavabod and self.chest_size == "3":
+            self.lavabod = False
+
 
     chest_size: EnumProperty(
         name="",
@@ -689,7 +686,8 @@ class TorsoState(PropertyGroup):
             ("1", "Medium", "Standard Medium"),
             ("2", "Small", "Standard Small"),
             ("3", "Masc", "Yet Another Masc"),
-        ]
+        ],
+        update=_masc_lavabod
         ) # type: ignore
 
     buff: BoolProperty(
@@ -704,7 +702,10 @@ class TorsoState(PropertyGroup):
         default=False,
     ) # type: ignore
 
-    def _save_sub_keys(self, context):
+    def _save_sub_keys(self, context) -> None:
+        if self.lavabod and self.chest_size == "3":
+            self.chest_size = "2"
+
         sizes = {}
         if self.MANNEQUIN:
             key_blocks = get_devkit_props().yam_mannequin.data.shape_keys.key_blocks
