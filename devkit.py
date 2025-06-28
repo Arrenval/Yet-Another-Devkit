@@ -386,11 +386,12 @@ class ModelDrivers():
                 [("nails", nail_path)],
                 expression
                 )
-        
+            
+        lava_key = "Lava Hands" if mq else "Lavabod"
         body_keys = {
             base_key: 0, 
             rue_key: 1, 
-            "Lavabod": 2, 
+            lava_key: 2, 
         }
 
         for key, value in body_keys.items():
@@ -438,7 +439,7 @@ class ModelDrivers():
             target_keys[rue_key],
             'value',
             [('rue_feet', rue_path)],
-            "rue == 1"
+            "rue_feet == 1"
         )
         
         create_scene_driver(
