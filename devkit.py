@@ -2,7 +2,7 @@ import bpy
 
 from typing           import TYPE_CHECKING, Iterable
 from bpy.props        import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty
-from bpy.types        import Operator, Panel, PropertyGroup, Object, Mesh, Context, UILayout, ShapeKey, Collection, LayerCollection, Driver, Key
+from bpy.types        import Operator, Panel, PropertyGroup, Object, Context, UILayout, ShapeKey, Collection, LayerCollection, Driver, Key
 from bpy.app.handlers import persistent
 
 devkit_registered = False
@@ -41,24 +41,29 @@ def get_object_from_mesh(mesh_name: str) -> Object | None:
 
     return controllers[mesh_name]
 
-def get_filtered_shape_keys(obj:Mesh, key_filter:list) -> list:
-        shape_keys = obj.shape_keys.key_blocks
-        key_list = []
-        to_exclude = ["Mini"]
+def get_shape_presets(size: str) -> dict[str, float]:
+        shape_presets = {
+        "Large":        {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
+        "Omoi":         {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 1.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
+        "Sugoi Omoi":   {"- Squeeze": 0.3, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 1.0, "- Uranus Redux": 0.0, "- Sag": 1.0, "- Nip Nops": 0.0},
+        "Uranus":       {"- Squeeze": 0.0, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 1.0, "- Sag": 0.0, "- Nip Nops": 0.0},
+        "Lava Omoi":    {"- Squeeze": 0.0, "- Squish": 0.0,  "- Push-Up": 0.0,  "- Omoi": 0.0, "- Uranus Redux": 0.0, "- Sag": 0.0, "- Nip Nops": 0.0},
         
-        for key in shape_keys:
-            norm_key = key.name.lower().replace("-","").replace(" ","")
-            if any(f_key == norm_key for f_key in key_filter):
-                key_name = key.name
-                category = key.relative_key.name
-                category_lower = category.lower().replace("-","").replace(" ","")
+        "Medium":       {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
+        "Sayonara":     {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 1.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
+        "Tsukareta":    {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.6, "-- Nip Nops": 0.0},
+        "Tsukareta+":   {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 1.0, "-- Nip Nops": 0.0},
+        "Mini":         {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 1.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
+        "Teardrop":     {"-- Squeeze": 0.0, "-- Squish": 0.0,  "-- Push-Up": 0.0,  "-- Mini": 0.0, "-- Sayonara": 0.0, "-- Sag": 0.0, "-- Nip Nops": 0.0},
 
-                if any(key_name in to_exclude for keys in to_exclude):
-                    break
+        "Small":        {"--- Squeeze": 0.0,                                                                                "--- Nip Nops": 0.0},
+        "Cupcake":      {"--- Squeeze": 0.0,  "--- Sugar": 0.0,                                                             "--- Nip Nops": 0.0},
+        "Sugar":        {"--- Squeeze": 0.0,  "--- Sugar": 1.0,                                                             "--- Nip Nops": 0.0},
 
-                key_list.append((norm_key, category_lower, key_name))
-        
-        return key_list
+        "Flat":         {"---- Pecs": 0.0,                                                                                  "---- Nip Nops": 0.0},
+        "Pecs":         {"---- Pecs": 1.0,                                                                                  "---- Nip Nops": 0.0}
+        }
+        return shape_presets[size]
 
 def create_scene_driver(target: Driver, prop: str, path_vars: list[tuple[str, str]], expression: str):
     try:
@@ -1843,20 +1848,9 @@ class Overview(Panel):
 
         layout.separator(factor=0.1)
    
-    def ui_category_buttons(self, layout:UILayout, prop, options, panel:str):
-        row = layout
-        ui_selector = getattr(self.window, prop)
-
-        for slot, icon in options.items():
-            depress = True if ui_selector == slot else False
-            operator = row.operator("yakit.set_ui", text="", icon=icon, depress=depress)
-            operator.overview = slot
-            operator.panel = panel
-
 
 CLASSES = [
     EnabledCollection,
-    AssignControllers,
     DevkitWindowProps,
     CollectionState,
     SubKeyValues,
