@@ -1924,7 +1924,7 @@ def set_devkit_properties() -> None:
     bpy.types.WindowManager.ya_devkit_window = PointerProperty(
         type=DevkitWindowProps)
     
-    bpy.types.Scene.ya_devkit_ver = (0, 15, 0)
+    bpy.types.Scene.ya_devkit_ver = (0, 16, 0)
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
