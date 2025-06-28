@@ -2,7 +2,7 @@ import bpy
 
 from typing           import TYPE_CHECKING, Iterable
 from bpy.props        import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty
-from bpy.types        import Operator, Panel, PropertyGroup, Object, Mesh, Context, UILayout, ShapeKey, Collection, LayerCollection, Driver
+from bpy.types        import Operator, Panel, PropertyGroup, Object, Mesh, Context, UILayout, ShapeKey, Collection, LayerCollection, Driver, Key
 from bpy.app.handlers import persistent
 
 devkit_registered = False
@@ -25,7 +25,7 @@ def assign_controller_meshes():
             prop_name = f"yam_{mesh_name.lower()}"
             setattr(props, prop_name, obj)
 
-def get_object_from_mesh(mesh_name:str) -> Object | None:
+def get_object_from_mesh(mesh_name: str) -> Object | None:
     props = get_devkit_props()
     controllers = {
         "Torso": props.yam_torso,
@@ -249,9 +249,9 @@ class ModelDrivers():
             target = target_keys[key]
             expression = f"gen == {value}"
 
-            create_driver(
+            create_scene_driver(
                 target,
-                "value",
+                'value',
                 [("gen", gen_path)],
                 expression
                 )
@@ -271,9 +271,9 @@ class ModelDrivers():
             target = target_keys[key]
             expression = f"legs == {value}"
 
-            create_driver(
+            create_scene_driver(
                 target,
-                "value",
+                'value',
                 [("legs", legs_path)],
                 expression
                 )
@@ -286,9 +286,9 @@ class ModelDrivers():
             var = key.lower().replace(" ", "_")
             expression = f"{var} == 1"
 
-            create_driver(
+            create_scene_driver(
                 target,
-                "value",
+                'value',
                 [(var, self._get_data_path(obj_str, var))],
                 expression
                 )
@@ -303,51 +303,51 @@ class ModelDrivers():
             target = target_keys[key]
             expression = f"squish == {value}"
 
-            create_driver(
+            create_scene_driver(
                 target,
-                "value",
+                'value',
                 [("squish", self._get_data_path(obj_str, "squish"))],
                 expression
             )
 
-        create_driver(
+        create_scene_driver(
             target_keys["Hip Dips (for YAB)"],
-            "value",
+            'value',
             [("legs", legs_path), 
             ("alt_hips", hip_path),
             ("rue", rue_path)],
             "legs <= 2 and alt_hips == 1 and rue == 0"
             )
         
-        create_driver(
+        create_scene_driver(
             target_keys["Less Hip Dips (for Rue)"],
-            "value",
+            'value',
             [("legs", legs_path), 
             ("alt_hips", hip_path),
             ("rue", rue_path)],
             "legs <= 2 and alt_hips == 1 and rue == 1"
             )
         
-        create_driver(
+        create_scene_driver(
             target_keys["Rue/Mini"],
-            "value",
+            'value',
             [("legs", legs_path), 
             ("rue", rue_path)],
             "legs == 5 and rue == 1"
             )
         
         if mq:
-            create_driver(
+            create_scene_driver(
                 target_keys["Rue/Lava Legs"],
-                "value",
+                'value',
                 [("legs", legs_path), 
                 ("rue", rue_path)],
                 "legs == 4 and rue == 1"
                 )
         
-        create_driver(
+        create_scene_driver(
             target_keys["Rue/Lava"],
-            "value",
+            'value',
             [("lavabod", self._get_data_path(obj_str, "lavabod")), 
             ("rue", rue_path)],
             "lavabod == 1 and rue == 1"
@@ -356,12 +356,12 @@ class ModelDrivers():
     def hand_drivers(self, mq=False) -> None:
         if mq:
             obj      = self.props.yam_mannequin
-            obj_str  = "mannequin_state"
+            obj_str  = 'mannequin_state'
             base_key = "LARGE"
             rue_key  = "Rue Hands"
         else:
             obj      = self.props.yam_hands
-            obj_str  = "hand_state"
+            obj_str  = 'hand_state'
             base_key = "NAILS"
             rue_key  = "Rue"
 
@@ -380,9 +380,9 @@ class ModelDrivers():
             target = target_keys[key]
             expression = f"nails == {value}"
 
-            create_driver(
+            create_scene_driver(
                 target,
-                "value",
+                'value',
                 [("nails", nail_path)],
                 expression
                 )
@@ -397,9 +397,9 @@ class ModelDrivers():
             target = target_keys[key]
             expression = f"hand_size == {value}"
 
-            create_driver(
+            create_scene_driver(
                 target_keys[key],
-                "value",
+                'value',
                 [("hand_size", body_path)],
                 expression
                     )
@@ -629,8 +629,6 @@ class CollectionState(PropertyGroup):
             data_sources.exclude    = not self.export
             resources.exclude       = not self.export
             resources.hide_viewport = self.export
-        
-        context.view_layer.update()
 
     export: BoolProperty(
         name="",
@@ -723,7 +721,6 @@ class TorsoState(PropertyGroup):
             for key in stored_keys:
                 sizes[key.name] = key.value
 
-        print(sizes)
         new_values.clear()
         for key in key_blocks:
             if not key.name.startswith("-"):
@@ -906,6 +903,95 @@ class MannequinState(TorsoState, LegState, HandState, FeetState):
     ) # type: ignore
     pass
     
+
+class DevkitWindowProps(PropertyGroup):
+    overview_ui: EnumProperty(
+        name= "",
+        description= "Select an overview",
+        items= [
+            ("Body", "Shape", "Body Overview", "OUTLINER_OB_ARMATURE", 0),
+            ("Shape Keys", "View", "Shape Key Overview", "MESH_DATA", 1),
+            ("Settings", "Settings", "Devkit Settings", "SETTINGS", 2),
+            ("Info", "Info", "Useful info", "INFO", 3),
+        ]
+        )  # type: ignore
+
+    ui_buttons_list = [
+        ("export",   "expand",   "Opens the category"),
+        ("import",   "expand",   "Opens the category"),
+        ("chest",    "shapes",   "Opens the category"),
+        ("leg",      "shapes",   "Opens the category"),
+        ("other",    "shapes",   "Opens the category"),
+        ("chest",    "category", "Opens the category"),
+        ("yas",      "expand",   "Opens the category"),
+        ("export",   "options",  "Opens the category"),
+        ("import",   "options",  "Opens the category"),
+        ("dynamic",  "view",     "Changes between a shape key view that focuses on the main controller in a collection or the active object"),
+        ]
+
+    @staticmethod
+    def ui_buttons() -> None:
+        for (name, category, description) in DevkitWindowProps.ui_buttons_list:
+            category_lower = category.lower()
+            name_lower = name.lower()
+
+            default = False
+            if name_lower == "advanced":
+                default = True
+            
+            prop_name = f"button_{name_lower}_{category_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=default, 
+                )
+            setattr(DevkitWindowProps, prop_name, prop)
+
+    @staticmethod
+    def export_bools() -> None:
+        """These are used in Yet Another Addon's batch export menu to very which shapes are available in the current kit."""
+        for shape, (name, slot, shape_category, description, body, key) in DevkitProps.ALL_SHAPES.items():
+            slot_lower = slot.lower().replace("/", " ")
+            name_lower = name.lower().replace(" ", "_")
+            
+            prop_name = f"export_{name_lower}_{slot_lower}_bool"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=False, 
+                )
+            setattr(DevkitWindowProps, prop_name, prop)
+
+    @staticmethod
+    def shpk_bools() -> None:
+        """These are used in Yet Another Addon's shape key menu to very which shapes are available in the current kit."""
+        for shape, (name, slot, shape_category, description, body, key) in DevkitProps.ALL_SHAPES.items():
+            if key == "":
+                continue
+            if slot == "Hands" or slot == "Feet":
+                continue
+            if shape_category == "Vagina":
+                continue
+            slot_lower = slot.lower().replace("/", " ")
+            key_lower = key.lower().replace(" ", "_")
+
+            prop_name = f"shpk_{slot_lower}_{key_lower}"
+            prop = BoolProperty(
+                name="", 
+                description=description,
+                default=False,
+                )
+            setattr(DevkitProps, prop_name, prop)
+
+    devkit_triangulation: BoolProperty(
+        default=True,
+        name="Triangulation",
+        description="Toggles triangulation of the devkit",
+        update=lambda self, context: bpy.context.view_layer.update()) # type: ignore
+    
+    if TYPE_CHECKING:
+        overview_ui: str
+        devkit_triangulation: bool
 
 def get_shape_presets(size: str) -> dict[str, float]:
         shape_presets = {
@@ -1115,15 +1201,12 @@ class DevkitProps(PropertyGroup):
 
     enabled_collection: CollectionProperty(type=EnabledCollection) # type: ignore
 
-    object_state: CollectionProperty(type=ObjectState) # type: ignore
-
     if TYPE_CHECKING:
         chest_shape_enum   : str
         shape_mq_chest_bool: bool
         shape_mq_legs_bool : bool
         shape_mq_other_bool: bool
         enabled_collection : Iterable[EnabledCollection]
-        object_state       : Iterable[ObjectState]
         
         collection_state   : CollectionState
         torso_state        : TorsoState
@@ -1150,7 +1233,6 @@ class CollectionManager(Operator):
         self.export                          = self.props.collection_state.export
         self.view_layer                      = bpy.context.view_layer.layer_collection
         self.enabled_coll: EnabledCollection = self.props.enabled_collection
-        self.object_state: ObjectState       = self.props.object_state
         self.coll                            = bpy.data.collections
         self.restore = []
         self.obj_visibility = {}
@@ -1192,12 +1274,12 @@ class CollectionManager(Operator):
 
         def save_current_state_recursive(layer_collection:LayerCollection):
             if not layer_collection.exclude:
-                    state = self.collections_state.add()
+                    state = self.enabled_coll.add()
                     state.name = layer_collection.name
             for child in layer_collection.children:
                 save_current_state_recursive(child)
 
-        self.collections_state.clear()
+        self.enabled_coll.clear()
         for layer_collection in context.view_layer.layer_collection.children:
             save_current_state_recursive(layer_collection)
       
@@ -1380,7 +1462,7 @@ class Overview(Panel):
         row.label(text=f"  {self.window.overview_ui}")
         button_row = row.row(align=True)
         
-        self.ui_category_buttons(button_row, "overview_ui", options, "overview")
+        button_row.prop(self.window, "overview_ui", text="", expand=True)
         
         layout.separator(factor=1, type="LINE")
 
@@ -1389,7 +1471,7 @@ class Overview(Panel):
         if self.window.overview_ui == "Shape Keys":
             box = layout.box()
 
-            obj = self.collection_context(context)
+            obj = self.collection_context()
             if obj is None or not obj.data.shape_keys:
                 row = box.row(align=True)
                 row.label(text="Object has no shape keys:", icon="ERROR")
@@ -1531,8 +1613,8 @@ class Overview(Panel):
             row = layout.row(align=True)
             row.alignment = "CENTER"
             col = row.column(align=True)
-            col.operator("yakit.reset_queue", text=("Reset Export"))
             col.operator("outliner.orphans_purge", text="Delete Unused Data")
+            col.operator("yakit.deactivate", text="Deactivate Devkit")
 
             layout.separator(factor=1, type="LINE")
 
@@ -1581,7 +1663,6 @@ class Overview(Panel):
             "Feet": ['Feet', 'Toenails', 'Toe Clawsies'] 
             }
 
-        # Get the active object
         active_obj = bpy.context.active_object
 
         if active_obj and active_obj.data.shape_keys:
@@ -1616,12 +1697,7 @@ class Overview(Panel):
         row.prop(target, "lavabod", text=f"{'Lavabod':<13}", icon="BLANK1")
 
         box = layout.box()
-        row = box.row()
-        
-        split = row.split(factor=0.25)
-        col = split.column(align=True)
-        col.alignment = "RIGHT"
-        col2 = split.column(align=True)
+        col = box.column(align=True)
 
         skip      = {"-- Teardrop", "--- Cupcake"}
         lava_skip = ["Omoi", "Uranus", "Nops", "Mini", "Sayonara"]
@@ -1646,26 +1722,12 @@ class Overview(Panel):
                 continue
             if key.name in skip:
                 continue
-
-            col.label(text=f"{key.name[name_idx:]}:")
-            col2.prop(key, "value", text=f"{key.value*100:.0f}%")
-     
+            
+            aligned_row(col, f"{key.name[name_idx:]}:", 'value', prop=key, prop_str=f"{key.value*100:.0f}%")
         
         layout.separator(factor=0.1)
 
-        row = layout.row()
-        split = row.split(factor=0.25, align=True) 
-        col = split.column(align=True)
-        col.alignment = "RIGHT"
-        col.label(text="Preset:")
-        
-        col2 = split.column(align=True)
-        col2.prop(self.props, "chest_shape_enum")
-
-        col3 = split.column(align=True)
-        operator = col3.operator("yakit.apply_shapes", text= "Apply")
-        operator.preset = "SHAPES"
-        operator.target = "Chest"
+        aligned_row(layout, "Preset:", "chest_shape_enum", self.props)
 
         layout.separator(factor=0.1)
 
@@ -1779,7 +1841,7 @@ class Overview(Panel):
             if key.name not in heel_keys:
                 continue
             col.label(text=f"{key.name}:")
-            col2.prop(key, "value", text=f"{key.value*100:.0f}%")
+            col2.prop(key, 'value', text=f"{key.value*100:.0f}%")
 
         layout.separator(factor=0.1)
    
@@ -1793,9 +1855,9 @@ class Overview(Panel):
             operator.overview = slot
             operator.panel = panel
 
+
 CLASSES = [
     EnabledCollection,
-    ObjectState,
     AssignControllers,
     DevkitWindowProps,
     CollectionState,
@@ -1830,7 +1892,7 @@ def delayed_setup(dummy=None) -> None:
         with context.temp_override(area=area, space=view3d):
             view3d.show_region_ui = True
             region = [region for region in area.regions if region.type == 'UI'][0]
-            region.active_panel_category = 'XIV Kit'
+            region.active_panel_category = "XIV Kit"
     except:
         pass
     
@@ -1843,7 +1905,6 @@ def cleanup_props(dummy=None) -> None:
     if not bpy.data.texts.get("devkit.py"):
         unregister()
         devkit_registered = False
-
 
 def get_devkit_props() -> DevkitProps:
     return bpy.context.scene.ya_devkit_props
@@ -1864,7 +1925,6 @@ def set_devkit_properties() -> None:
     DevkitWindowProps.export_bools()
  
 def register() -> None:
-
     for cls in CLASSES:
         bpy.utils.register_class(cls)
         if cls == DevkitProps:
