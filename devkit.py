@@ -60,26 +60,40 @@ def get_filtered_shape_keys(obj:Mesh, key_filter:list) -> list:
         
         return key_list
 
-def create_driver(target: Driver, prop:str, path_vars: list[tuple[str, str]], expression: str):
+def create_scene_driver(target: Driver, prop: str, path_vars: list[tuple[str, str]], expression: str):
     try:
         target.driver_remove(prop)
     except:
         pass
     
-    # Create new driver
     driver = target.driver_add(prop).driver
-    driver.type = "SCRIPTED" 
+    driver.type = 'SCRIPTED' 
     driver.expression = expression
     
     # Add variable for the control property
     for var_name, data_path in path_vars:
         var = driver.variables.new()
         var.name = var_name
-        var.type = "SINGLE_PROP"
-        var.targets[0].id_type = "SCENE"
+        var.type = 'SINGLE_PROP'
+        var.targets[0].id_type = 'SCENE'
         var.targets[0].id = bpy.context.scene
         var.targets[0].data_path = data_path
 
+def create_key_link_driver(target: Driver, source: Key, prop: str, data_path: str):
+    try:
+        target.driver_remove(prop)
+    except:
+        pass
+    
+    driver = target.driver_add(prop).driver
+    driver.type = 'AVERAGE' 
+    
+    var = driver.variables.new()
+    var.name = prop
+    var.type = 'SINGLE_PROP'
+    var.targets[0].id_type = 'KEY'
+    var.targets[0].id = source
+    var.targets[0].data_path = data_path
 
 class AssignControllers(Operator):
     bl_idname = "yakit.assign_controllers"
@@ -112,7 +126,7 @@ class ModelDrivers():
     def torso_drivers(self, mq=False) -> None:
         if mq:
             obj     = self.props.yam_mannequin
-            obj_str = "mannequin_state"
+            obj_str = 'mannequin_state'
         else:
             obj     = self.props.yam_torso
             obj_str = "torso_state"
@@ -129,6 +143,7 @@ class ModelDrivers():
         }
         option_keys = ["Buff", "Rue", "Lavabod"]
         lava_keys   = ["- Soft Nips", "-- Soft Nips", "-- Teardrop", "--- Soft Nips", "--- Cupcake"]
+        lava_skip   = ["Omoi", "Uranus", "Nops", "Mini", "Sayonara"]
 
         var_paths  = [("size", chest_path)]
 
@@ -139,42 +154,49 @@ class ModelDrivers():
                 var_paths.append(("lava", lava_path))
 
             target = target_keys[size]
-            create_driver(
+            create_scene_driver(
                 target, 
-                "value", 
+                'value', 
                 var_paths,
                 expression)
 
             for sub_key in target_keys:
-                if sub_key.name.startswith("-" * (value + 1)):
-                    target = sub_key
+                if not sub_key.name.startswith("-" * (value + 1)):
+                    continue
+
+                sub_var_paths = [("size", chest_path)]
+                if any(skip in sub_key.name for skip in lava_skip):
+                    expression = f"size != {value} or lava == 1"
+                    sub_var_paths.append(("lava", lava_path))
+                else:
                     expression = f"size != {value}"
-                    create_driver(
-                        target, 
-                        "mute", 
-                        [("size", chest_path)], 
-                        expression)
+
+                create_scene_driver(
+                    sub_key, 
+                    'mute', 
+                    sub_var_paths, 
+                    expression)
 
         for key in option_keys:
             target = target_keys[key]
             expression = f"option == 1"
-            create_driver(
+            create_scene_driver(
                 target, 
-                "value", 
+                'value', 
                 [("option", self._get_data_path(obj_str, key.lower()))], 
                 expression)
 
         for key in lava_keys:
             count = key.count("-")
             if key in ("-- Teardrop", "--- Cupcake"):
-                prop = "value"
+                prop = 'value'
                 expression = f"lava == 1 and size == {count - 1}"
             else:
-                prop = "mute"
+                prop = 'mute'
                 expression = f"lava == 0 and size != {count - 1}"
             target = target_keys[key]
             
-            create_driver(
+            create_scene_driver(
                 target, 
                 prop, 
                 [("lava", lava_path), 
@@ -182,17 +204,17 @@ class ModelDrivers():
                 expression
                 )
             
-            create_driver(
+            create_scene_driver(
                 target_keys["Rue/Buff"],
-                "value",
+                'value',
                 [("buff", self._get_data_path(obj_str, "buff")), 
                 ("rue", self._get_data_path(obj_str, "rue"))],
                 "buff == 1 and rue == 1"
             )
 
-            create_driver(
+            create_scene_driver(
                 target_keys["Rue/Lava"],
-                "value",
+                'value',
                 [("lava", lava_path), 
                 ("rue", self._get_data_path(obj_str, "rue"))],
                 "lava == 1 and rue == 1"
@@ -201,7 +223,7 @@ class ModelDrivers():
     def leg_drivers(self, mq=False) -> None:
         if mq:
             obj      = self.props.yam_mannequin
-            obj_str  = "mannequin_state"
+            obj_str  = 'mannequin_state'
             base_key = "LARGE"
             lava_key = "Lava Legs"
         else:
@@ -392,9 +414,9 @@ class ModelDrivers():
                 target = target_keys[key]
                 expression = f"clawsies == {value}"
 
-                create_driver(
+                create_scene_driver(
                     target_keys[key],
-                    "value",
+                    'value',
                     [("clawsies", body_path)],
                     expression
                     )
@@ -402,122 +424,40 @@ class ModelDrivers():
     def feet_drivers(self, mq=False) -> None:
         if mq:
             obj      = self.props.yam_mannequin
-            obj_str  = "mannequin_state"
+            obj_str  = 'mannequin_state'
             rue_key  = "Rue Feet"
         else:
             obj      = self.props.yam_feet
-            obj_str  = "feet_state"
+            obj_str  = 'feet_state'
             rue_key  = "Rue"
 
         target_keys = obj.data.shape_keys.key_blocks
-        rue_path    = self._get_data_path(obj_str, "rue_feet")
+        rue_path    = self._get_data_path(obj_str, 'rue_feet')
 
-        create_driver(
+        create_scene_driver(
             target_keys[rue_key],
-            "value",
-            [("rue_feet", rue_path)],
+            'value',
+            [('rue_feet', rue_path)],
             "rue == 1"
         )
         
-        create_driver(
+        create_scene_driver(
                 target_keys["Rue/Cinderella"],
-                "mute",
+                'mute',
                 [("rue", rue_path)],
                 "rue != 1"
             )
+
+        create_key_link_driver(
+            target_keys["Rue/Cinderella"],
+            obj.data.shape_keys,
+            'value',
+            'key_blocks["Cinderella"].value'
+        )
                
     def _get_data_path(self, obj_str: str, prop: str) -> str:
         return f"{self.data_path}.{obj_str}.{prop}"
     
-
-class DevkitWindowProps(PropertyGroup):
-    overview_ui: EnumProperty(
-        name= "",
-        description= "Select an overview",
-        items= [
-            ("Body", "Shape", "Body Overview"),
-            ("Shape Keys", "View", "Shape Key Overview"),
-            ("Settings", "Settings", "Devkit Settings"),
-            ("Info", "Info", "Useful info"),
-        ]
-        )  # type: ignore
-    
-    ui_buttons_list = [
-        ("export",   "expand",   "Opens the category"),
-        ("import",   "expand",   "Opens the category"),
-        ("chest",    "shapes",   "Opens the category"),
-        ("leg",      "shapes",   "Opens the category"),
-        ("other",    "shapes",   "Opens the category"),
-        ("chest",    "category", "Opens the category"),
-        ("yas",      "expand",   "Opens the category"),
-        ("export",   "options",  "Opens the category"),
-        ("import",   "options",  "Opens the category"),
-        ("dynamic",  "view",     "Changes between a shape key view that focuses on the main controller in a collection or the active object"),
-        ]
-
-    @staticmethod
-    def ui_buttons() -> None:
-        for (name, category, description) in DevkitWindowProps.ui_buttons_list:
-            category_lower = category.lower()
-            name_lower = name.lower()
-
-            default = False
-            if name_lower == "advanced":
-                default = True
-            
-            prop_name = f"button_{name_lower}_{category_lower}"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=default, 
-                )
-            setattr(DevkitWindowProps, prop_name, prop)
-
-    @staticmethod
-    def export_bools() -> None:
-        """These are used in Yet Another Addon's batch export menu to very which shapes are available in the current kit."""
-        for shape, (name, slot, shape_category, description, body, key) in DevkitProps.ALL_SHAPES.items():
-            slot_lower = slot.lower().replace("/", " ")
-            name_lower = name.lower().replace(" ", "_")
-            
-            prop_name = f"export_{name_lower}_{slot_lower}_bool"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=False, 
-                )
-            setattr(DevkitWindowProps, prop_name, prop)
-
-    @staticmethod
-    def shpk_bools() -> None:
-        """These are used in Yet Another Addon's shape key menu to very which shapes are available in the current kit."""
-        for shape, (name, slot, shape_category, description, body, key) in DevkitProps.ALL_SHAPES.items():
-            if key == "":
-                continue
-            if slot == "Hands" or slot == "Feet":
-                continue
-            if shape_category == "Vagina":
-                continue
-            slot_lower = slot.lower().replace("/", " ")
-            key_lower = key.lower().replace(" ", "_")
-
-            prop_name = f"shpk_{slot_lower}_{key_lower}"
-            prop = BoolProperty(
-                name="", 
-                description=description,
-                default=False,
-                )
-            setattr(DevkitProps, prop_name, prop)
-
-    devkit_triangulation: BoolProperty(
-        default=True,
-        name="Triangulation",
-        description="Toggles triangulation of the devkit",
-        update=lambda self, context: bpy.context.view_layer.update()) # type: ignore
-    
-    if TYPE_CHECKING:
-        overview_ui: str
-        devkit_triangulation: bool
 
 class EnabledCollection(PropertyGroup):
     name: StringProperty() # type: ignore
