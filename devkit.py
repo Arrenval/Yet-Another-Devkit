@@ -2,7 +2,7 @@ import bpy
 
 from typing           import TYPE_CHECKING, Iterable
 from bpy.props        import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty
-from bpy.types        import Operator, Panel, PropertyGroup, Object, Context, UILayout, ShapeKey, Collection, LayerCollection, Driver, Key
+from bpy.types        import Operator, Panel, PropertyGroup, Object, Context, UILayout, ShapeKey, Driver, Key
 from bpy.app.handlers import persistent
 
 devkit_registered = False
@@ -164,7 +164,7 @@ class ModelDrivers():
                 expression = f"lava == 1 and size == {count - 1}"
             else:
                 prop = 'mute'
-                expression = f"lava == 0 and size != {count - 1}"
+                expression = f"lava == 0 or size != {count - 1}"
             target = target_keys[key]
             
             create_scene_driver(
@@ -319,9 +319,9 @@ class ModelDrivers():
         create_scene_driver(
             target_keys["Rue/Lava"],
             'value',
-            [("lavabod", self._get_data_path(obj_str, "lavabod")), 
+            [("leg_size", legs_path), 
             ("rue", rue_path)],
-            "lavabod == 1 and rue == 1"
+            "leg_size == 4 and rue == 1"
             )
 
     def hand_drivers(self, mq=False) -> None:
