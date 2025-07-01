@@ -1685,7 +1685,7 @@ class Overview(Panel):
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = 'RIGHT'
-        split.label(text="Devkit: ")
+        split.label(text="Devkit:")
 
         split.prop(self.window, 'yas_storage')
         op = split.operator("ya.yas_manager", text="Store")
@@ -1700,15 +1700,15 @@ class Overview(Panel):
             split.alignment = 'RIGHT'
             split.label(text=f"{name}:")
 
+            details = split.row(align=True)
             icon, text = self.yas_status(attr)
-            split.alignment = 'LEFT'
-            split.label(text=text, icon=icon)
+            details.label(text=text, icon=icon)
             if obj.yas_groups:
-                op = row.operator("ya.yas_manager", text="", icon='FILE_PARENT')
+                op = details.operator("ya.yas_manager", text="", icon='FILE_PARENT')
                 op.mode = 'RESTORE'
                 op.target = name.upper()
             else:
-                op = row.operator("ya.yas_manager", text="", icon='FILE_TICK')
+                op = details.operator("ya.yas_manager", text="", icon='FILE_TICK')
                 op.mode = self.window.yas_storage
                 op.target = name.upper()
             
@@ -1878,7 +1878,7 @@ def set_devkit_properties() -> None:
     bpy.types.WindowManager.ya_devkit_window = PointerProperty(
         type=DevkitWindowProps)
     
-    bpy.types.Scene.ya_devkit_ver = (0, 17, 0)
+    bpy.types.Scene.ya_devkit_ver = (0, 17, 1)
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
