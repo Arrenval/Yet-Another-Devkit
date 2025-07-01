@@ -1,7 +1,7 @@
-import bpy   
+import bpy
 
 from typing           import TYPE_CHECKING, Iterable
-from bpy.props        import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty
+from bpy.props        import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty, IntProperty
 from bpy.types        import Operator, Panel, PropertyGroup, Object, Context, UILayout, ShapeKey, Driver, Key
 from bpy.app.handlers import persistent
 
@@ -987,9 +987,18 @@ class DevkitWindowProps(PropertyGroup):
         description="Toggles triangulation of the devkit",
         update=lambda self, context: bpy.context.view_layer.update()) # type: ignore
     
+    yas_storage: EnumProperty(
+        name="",
+        description="Select what vertex groups to store",
+        items=[
+            ('ALL', "All Weights", "Store all YAS weights."),
+            ('GEN', "Genitalia", "Store all genitalia related weights.")
+        ]
+        ) # type: ignore
     if TYPE_CHECKING:
         overview_ui: str
         devkit_triangulation: bool
+        yas_storage: str
 
 class DevkitProps(PropertyGroup):
     
@@ -1208,7 +1217,6 @@ class DevkitProps(PropertyGroup):
 
         mannequin_state: MannequinState
 
-
 def link_tri_modifier():
     for obj in bpy.data.objects:
         tri_mod = [modifier for modifier in obj.modifiers if modifier.type == 'TRIANGULATE']
@@ -1225,12 +1233,12 @@ def _add_tri_driver(modifier:ShapeKey) -> None:
         modifier.driver_remove("show_viewport")
         driver = modifier.driver_add("show_viewport").driver
 
-        driver.type = "AVERAGE"
+        driver.type = 'AVERAGE'
         driver_var  = driver.variables.new()
         driver_var.name = "show_viewport"
-        driver_var.type = "SINGLE_PROP"
+        driver_var.type = 'SINGLE_PROP'
 
-        driver_var.targets[0].id_type   = "WINDOWMANAGER"
+        driver_var.targets[0].id_type   = 'WINDOWMANAGER'
         driver_var.targets[0].id        = bpy.context.window_manager
         driver_var.targets[0].data_path = "ya_devkit_window.devkit_triangulation"
         
@@ -1456,7 +1464,12 @@ class Overview(Panel):
             row.label(text="Yet Another Skeleton")
 
             if button:
-                self.yas_menu(layout)
+                if hasattr(context.scene, "ya_outfit_props"):
+                    self.yas_menu(layout)
+                else:
+                    row = layout.row(align=True)
+                    row.alignment = "CENTER"
+                    row.label(text="Requires Yet Another Addon", icon="INFO")
 
         # SETTINGS
 
@@ -1659,7 +1672,47 @@ class Overview(Panel):
         layout.separator(factor=0.1)
 
     def yas_menu(self, layout: UILayout):
+        devkit_obj = [
+            ("Torso", self.props.yam_torso, 'yam_torso'),
+            ("Legs", self.props.yam_legs, 'yam_legs'),
+            ("Hands", self.props.yam_hands, 'yam_hands'),
+            ("Feet", self.props.yam_feet, 'yam_feet'),
+            ("Mannequin", self.props.yam_mannequin, 'yam_mannequin')
+        ]
+
         layout.separator(factor=0.1)
+
+        row = layout.row(align=True)
+        split = row.split(factor=0.25, align=True)
+        split.alignment = 'RIGHT'
+        split.label(text="Devkit: ")
+
+        split.prop(self.window, 'yas_storage')
+        op = split.operator("ya.yas_manager", text="Store")
+        op.mode = self.window.yas_storage
+        op.target = "DEVKIT"
+
+        layout.separator(factor=0.5, type='LINE')
+
+        for name, obj, attr in devkit_obj:
+            row = layout.row(align=True)
+            split = row.split(factor=0.25, align=True)
+            split.alignment = 'RIGHT'
+            split.label(text=f"{name}:")
+
+            icon, text = self.yas_status(attr)
+            split.alignment = 'LEFT'
+            split.label(text=text, icon=icon)
+            if obj.yas_groups:
+                op = row.operator("ya.yas_manager", text="", icon='FILE_PARENT')
+                op.mode = 'RESTORE'
+                op.target = name.upper()
+            else:
+                op = row.operator("ya.yas_manager", text="", icon='FILE_TICK')
+                op.mode = self.window.yas_storage
+                op.target = name.upper()
+            
+        row = layout.row(align=True)
  
     def other_shapes(self, layout: UILayout):
         layout.separator(factor=0.1)  
@@ -1738,6 +1791,32 @@ class Overview(Panel):
 
         layout.separator(factor=0.1)
    
+    def yas_status(self, attr: str) -> tuple[str, str]:
+        no_weights  = "No stored weights."
+        gen_weights = "Genitalia weights stored."
+        all_weights = "All weights stored."
+        vertices    = "Vertex count changed."
+        missing_obj = "Check your devkit settings."
+
+        obj: Object = getattr(self.props, attr)
+
+        if not obj:
+            icon = 'ERROR'
+            text = missing_obj
+        
+        elif not obj.yas_groups:
+            icon = 'X'
+            text = no_weights
+        
+        elif obj.yas_groups[0].old_count != len(obj.data.vertices):
+            icon = 'ERROR'
+            text = vertices
+
+        else:
+            icon = 'CHECKMARK'
+            text = all_weights if any(group.all_groups for group in obj.yas_groups) else gen_weights
+    
+        return icon, text
 
 CLASSES = [
     DevkitWindowProps,
@@ -1754,7 +1833,6 @@ CLASSES = [
     AssignControllers,
     Overview
 ]
-
 
 def delayed_setup(dummy=None) -> None:
     global devkit_registered  
@@ -1800,7 +1878,7 @@ def set_devkit_properties() -> None:
     bpy.types.WindowManager.ya_devkit_window = PointerProperty(
         type=DevkitWindowProps)
     
-    bpy.types.Scene.ya_devkit_ver = (0, 16, 1)
+    bpy.types.Scene.ya_devkit_ver = (0, 17, 0)
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
