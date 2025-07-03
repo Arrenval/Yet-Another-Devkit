@@ -6,7 +6,10 @@ from bpy.types        import Operator, Panel, PropertyGroup, Object, Context, UI
 from bpy.app.handlers import persistent
 
 
-_devkit_registered = False
+_devkit_registered   = False
+_syncing_collections = False
+_msgbus_col          = None
+
 
 def assign_controller_meshes():
     props = get_devkit_props()
@@ -493,16 +496,28 @@ class TorsoState(PropertyGroup):
         if self.lavabod and not sizes:
             key_blocks["- Squeeze"].value = 0.0
 
-    chest_size: EnumProperty(
-        name="",
-        description="Choose a chest size",
-        default="0",
-        items=[
+    def _chest_enums(self, context) -> None:
+        if self.lavabod:
+            return [
+            ("0", "Omoi", "Biggest Lavatiddy"),
+            ("1", "Teardrop", "Medium lavatiddy"),
+            ("2", "Cupcake", "Small lavatiddy"),
+            ("3", "Masc", "Yet Another Masc"),
+        ]
+
+        else:
+            return [
             ("0", "Large", "Standard Large"),
             ("1", "Medium", "Standard Medium"),
             ("2", "Small", "Standard Small"),
             ("3", "Masc", "Yet Another Masc"),
-        ],
+        ]
+
+    chest_size: EnumProperty(
+        name="",
+        description="Choose a chest size",
+        default=0,
+        items=_chest_enums,
         update=_masc_lavabod
         ) # type: ignore
 
@@ -688,24 +703,42 @@ class MannequinState(TorsoState, LegState, HandState, FeetState):
 class CollectionState(PropertyGroup):
 
     def update_skeleton(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         context.view_layer.layer_collection.children["Skeleton"].exclude = not self.skeleton
     
     def update_chest(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         if not self.chest:
             self.nipple_piercings = False
     
         context.view_layer.layer_collection.children["Chest"].exclude = not self.chest
     
     def update_nipple_piercings(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         context.view_layer.layer_collection.children["Chest"].children["Nipple Piercings"].exclude = not self.nipple_piercings
     
     def update_legs(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         context.view_layer.layer_collection.children["Legs"].exclude = not self.legs
 
     def update_pubes(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         context.view_layer.layer_collection.children["Legs"].children["Pubes"].exclude = not self.pubes
     
     def update_hands(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         if not self.hands:
             self.nails    = False
             self.clawsies = False
@@ -717,6 +750,9 @@ class CollectionState(PropertyGroup):
             self.clawsies = False
 
     def update_nails(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         if self.nails:
             self.clawsies = False
         elif self.hands:
@@ -724,6 +760,9 @@ class CollectionState(PropertyGroup):
         context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = not self.nails
     
     def update_clawsies(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         if self.clawsies:
             self.nails = False
         elif self.hands:
@@ -732,9 +771,15 @@ class CollectionState(PropertyGroup):
         context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = not self.clawsies
     
     def update_practical(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         context.view_layer.layer_collection.children["Hands"].children["Nails"].children["Practical Uses"].exclude = not self.practical
     
     def update_feet(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         if not self.feet:
             self.toenails = False
             self.toe_clawsies = False
@@ -746,6 +791,9 @@ class CollectionState(PropertyGroup):
             self.toe_clawsies = False
         
     def update_toe_clawsies(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         if self.toe_clawsies:
             self.toenails = False
         elif self.feet:
@@ -754,6 +802,9 @@ class CollectionState(PropertyGroup):
         context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude = not self.toe_clawsies
     
     def update_toenails(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         if self.toenails:
             self.toe_clawsies = False
         elif self.feet:
@@ -761,6 +812,9 @@ class CollectionState(PropertyGroup):
         context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude = not self.toenails
     
     def update_mannequin(self, context: Context) -> None:
+        if _syncing_collections:
+            return
+        
         context.view_layer.layer_collection.children["Mannequin"].exclude = not self.mannequin
     
     def update_export(self, context: Context) -> None:
@@ -1178,16 +1232,16 @@ class DevkitProps(PropertyGroup):
 
 
     def _get_listable_shapes(self, context) -> list:
-        items = []
+        items = [("", "LARGE:", "")]
 
         for shape, (name, slot, shape_category, description, body, key) in self.ALL_SHAPES.items():
             if slot.lower() == "chest" and description != "" and shape_category !="":
                 if name == "Medium":
-                    items.append(None)
+                    items.append(("", "MEDIUM:", ""))
                 if name == "Small":
-                    items.append(None)
+                    items.append(("", "SMALL/MASC:", ""))
                 if name == "Lava Omoi":
-                    items.append(None)
+                    items.append(("", "LAVABOD:", ""))
                     items.append((name, "Omoi", description))
                     continue
                 if name == "Flat":
@@ -1267,6 +1321,7 @@ class DevkitProps(PropertyGroup):
         yam_mannequin      : Object
 
         mannequin_state: MannequinState
+
 
 def link_tri_modifier():
     for obj in bpy.data.objects:
@@ -1915,6 +1970,42 @@ def cleanup_props(dummy=None) -> None:
         unregister()
         _devkit_registered = False
 
+def collection_exclude(dummy=None):
+    global _syncing_collections
+    if _syncing_collections:
+        return
+        
+    _syncing_collections = True
+    try:
+        collection = get_devkit_props().collection_state
+        layer_col = bpy.context.view_layer.layer_collection
+
+        collection.skeleton         = not layer_col.children["Skeleton"].exclude
+        collection.chest            = not layer_col.children["Chest"].exclude
+        collection.nipple_piercings = not layer_col.children["Chest"].children["Nipple Piercings"].exclude
+        collection.legs             = not layer_col.children["Legs"].exclude
+        collection.pubes            = not layer_col.children["Legs"].children["Pubes"].exclude
+        collection.hands            = not layer_col.children["Hands"].exclude
+        collection.nails            = not layer_col.children["Hands"].children["Nails"].exclude
+        collection.clawsies         = not layer_col.children["Hands"].children["Clawsies"].exclude  
+        collection.practical        = not layer_col.children["Hands"].children["Nails"].children["Practical Uses"].exclude
+        collection.feet             = not layer_col.children["Feet"].exclude
+        collection.toenails         = not layer_col.children["Feet"].children["Toenails"].exclude  
+        collection.toe_clawsies     = not layer_col.children["Feet"].children["Toe Clawsies"].exclude
+        collection.mannequin        = not layer_col.children["Mannequin"].exclude
+
+    finally:
+        _syncing_collections = False
+
+@persistent
+def col_exclude_msgbus(dummy):
+    bpy.msgbus.subscribe_rna(
+        key=(bpy.types.LayerCollection, "exclude"),
+        owner=_msgbus_col, 
+        args=(),
+        notify=collection_exclude
+    )
+
 def get_devkit_props() -> DevkitProps:
     return bpy.context.scene.ya_devkit_props
 
@@ -1940,8 +2031,17 @@ def register() -> None:
         if cls == DevkitProps:
             set_devkit_properties()
 
+    try:
+        bpy.msgbus.clear_by_owner(_msgbus_col)
+    except:
+        pass
+
+    dummy = None
+    col_exclude_msgbus(dummy)
     bpy.app.timers.register(delayed_setup, first_interval=1.5)
+    bpy.app.handlers.load_post.append(col_exclude_msgbus)
     bpy.app.handlers.load_post.append(cleanup_props)
+    
 
 def unregister() -> None: 
     for cls in reversed(CLASSES):
@@ -1965,6 +2065,14 @@ def unregister() -> None:
     except:
         pass
     
+    try:
+        bpy.msgbus.clear_by_owner(_msgbus_col)
+    except:
+        pass
+    try:
+        bpy.app.handlers.load_post.remove(col_exclude_msgbus)
+    except:
+        pass
     try:
         bpy.app.handlers.load_post.remove(cleanup_props)
     except:
