@@ -5,7 +5,8 @@ from bpy.props        import StringProperty, EnumProperty, BoolProperty, Pointer
 from bpy.types        import Operator, Panel, PropertyGroup, Object, Context, UILayout, ShapeKey, Driver, Key
 from bpy.app.handlers import persistent
 
-devkit_registered = False
+
+_devkit_registered = False
 
 def assign_controller_meshes():
     props = get_devkit_props()
@@ -446,7 +447,7 @@ class TorsoState(PropertyGroup):
         default=False,
         options={'HIDDEN', 'SKIP_SAVE'}  
     ) # type: ignore
-    
+
     def _masc_lavabod(self, context) -> None:
         if self.lavabod and self.chest_size == "3":
             self.lavabod = False
@@ -548,7 +549,7 @@ class LegState(PropertyGroup):
     def _change_legs(self, context) -> None:
         if self.alt_hips and int(self.leg_size) > 2:
             self.leg_size = "0"
-
+    
     gen: EnumProperty(
         name="",
         description="Choose a genitalia type",
@@ -612,6 +613,7 @@ class LegState(PropertyGroup):
         ]
         ) # type: ignore
     
+
     if TYPE_CHECKING:
         gen       : str
         leg_size  : str
@@ -656,6 +658,7 @@ class HandState(PropertyGroup):
         ]
         ) # type: ignore
 
+
     if TYPE_CHECKING:
         nails    : str
         hand_size: str
@@ -684,22 +687,25 @@ class MannequinState(TorsoState, LegState, HandState, FeetState):
 
 class CollectionState(PropertyGroup):
 
-    def update_skeleton(self, context: Context):
+    def update_skeleton(self, context: Context) -> None:
         context.view_layer.layer_collection.children["Skeleton"].exclude = not self.skeleton
     
-    def update_chest(self, context: Context):
+    def update_chest(self, context: Context) -> None:
+        if not self.chest:
+            self.nipple_piercings = False
+    
         context.view_layer.layer_collection.children["Chest"].exclude = not self.chest
     
-    def update_nipple_piercings(self, context: Context):
+    def update_nipple_piercings(self, context: Context) -> None:
         context.view_layer.layer_collection.children["Chest"].children["Nipple Piercings"].exclude = not self.nipple_piercings
     
-    def update_legs(self, context: Context):
+    def update_legs(self, context: Context) -> None:
         context.view_layer.layer_collection.children["Legs"].exclude = not self.legs
 
-    def update_pubes(self, context: Context):
+    def update_pubes(self, context: Context) -> None:
         context.view_layer.layer_collection.children["Legs"].children["Pubes"].exclude = not self.pubes
     
-    def update_hands(self, context: Context):
+    def update_hands(self, context: Context) -> None:
         if not self.hands:
             self.nails    = False
             self.clawsies = False
@@ -710,14 +716,14 @@ class CollectionState(PropertyGroup):
             self.nails    = True
             self.clawsies = False
 
-    def update_nails(self, context: Context):
+    def update_nails(self, context: Context) -> None:
         if self.nails:
             self.clawsies = False
         elif self.hands:
             self.clawsies = True
         context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = not self.nails
     
-    def update_clawsies(self, context: Context):
+    def update_clawsies(self, context: Context) -> None:
         if self.clawsies:
             self.nails = False
         elif self.hands:
@@ -725,10 +731,10 @@ class CollectionState(PropertyGroup):
 
         context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = not self.clawsies
     
-    def update_practical(self, context: Context):
+    def update_practical(self, context: Context) -> None:
         context.view_layer.layer_collection.children["Hands"].children["Nails"].children["Practical Uses"].exclude = not self.practical
     
-    def update_feet(self, context: Context):
+    def update_feet(self, context: Context) -> None:
         if not self.feet:
             self.toenails = False
             self.toe_clawsies = False
@@ -739,7 +745,7 @@ class CollectionState(PropertyGroup):
             self.toenails = True
             self.toe_clawsies = False
         
-    def update_toe_clawsies(self, context: Context):
+    def update_toe_clawsies(self, context: Context) -> None:
         if self.toe_clawsies:
             self.toenails = False
         elif self.feet:
@@ -747,17 +753,17 @@ class CollectionState(PropertyGroup):
 
         context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude = not self.toe_clawsies
     
-    def update_toenails(self, context: Context):
+    def update_toenails(self, context: Context) -> None:
         if self.toenails:
             self.toe_clawsies = False
         elif self.feet:
             self.toe_clawsies = True
         context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude = not self.toenails
     
-    def update_mannequin(self, context: Context):
+    def update_mannequin(self, context: Context) -> None:
         context.view_layer.layer_collection.children["Mannequin"].exclude = not self.mannequin
     
-    def update_export(self, context: Context):
+    def update_export(self, context: Context) -> None:
         resources    = context.view_layer.layer_collection.children["Resources"]
         data_sources = resources.children["Data Sources"]
 
@@ -785,7 +791,6 @@ class CollectionState(PropertyGroup):
             resources.hide_viewport = self.export
         
         bpy.context.view_layer.update()
-
 
     skeleton: BoolProperty(
         name="",
@@ -826,7 +831,7 @@ class CollectionState(PropertyGroup):
         name="",
         description="jazz",
         default=False,
-        update=lambda self, context: self.update_hands(context)
+        update=update_hands
     ) # type: ignore
 
     nails: BoolProperty(
@@ -885,6 +890,7 @@ class CollectionState(PropertyGroup):
         update=update_export
     ) # type: ignore
 
+    
     if TYPE_CHECKING:
         skeleton        : bool
         chest           : bool
@@ -1079,6 +1085,50 @@ class DevkitProps(PropertyGroup):
             "Clawsies":     ("Clawsies",     "Feet",         "Claws",  "Good for kicking",                                    False,               ""),
             }
     
+    def export_state(self, category: str, piercings: bool, pubes: bool) -> None:
+        states = {
+            "Chest": (True,  False, False, False),
+            "Legs":  (False, True,  False, False),
+            "Hands": (False, False, True,  False),
+            "Feet":  (False, False, False, True),
+
+            "Chest & Legs":  (True, True, False, False),
+        }
+
+        torso, legs, hands, feet = states[category]
+
+        self.collection_state.chest = torso
+        self.collection_state.legs  = legs
+        self.collection_state.hands = hands
+        self.collection_state.feet  = feet
+        
+        self.collection_state.pubes = pubes and legs
+        self.collection_state.nipple_piercings = piercings and torso
+        
+        self.collection_state.mannequin = False
+        self.collection_state.export    = True
+
+    def reset_torso(self) -> None:
+        self.torso_state.chest_size = '0'
+        self.torso_state.buff       = False
+        self.torso_state.rue        = False
+        self.torso_state.lavabod    = False 
+    
+    def reset_legs(self) -> None:
+        self.leg_state.gen        = '0'
+        self.leg_state.leg_size   = '0'
+        self.leg_state.small_butt = False
+        self.leg_state.soft_butt  = False
+        self.leg_state.alt_hips   = False
+
+    def reset_hands(self) -> None:
+        self.hand_state.nails     = '0'
+        self.hand_state.clawsies  = '0'
+        self.hand_state.hand_size = '0'
+    
+    def reset_feet(self) -> None:
+        self.feet_state.rue_feet = False
+
     collection_state: PointerProperty(type=CollectionState) # type: ignore
 
     torso_state: PointerProperty(type=TorsoState) # type: ignore
@@ -1125,6 +1175,7 @@ class DevkitProps(PropertyGroup):
         description="Essential for devkit functionality",
         poll=lambda self, obj: obj.type == "MESH" and "Mannequin" in obj.data.name
     ) # type: ignore  
+
 
     def _get_listable_shapes(self, context) -> list:
         items = []
@@ -1257,7 +1308,7 @@ class DeactivateKit(Operator):
     bl_description = "Resets all model drivers and deactivates devkit"
 
     def execute(self, context):
-        global devkit_registered
+        global _devkit_registered
         props = get_devkit_props()
 
         unlink_tri_modifier()
@@ -1267,7 +1318,7 @@ class DeactivateKit(Operator):
         props.yam_feet.data.shape_keys.animation_data_clear()
         props.yam_mannequin.data.shape_keys.animation_data_clear()
         unregister()
-        devkit_registered = False
+        _devkit_registered = False
         return {'FINISHED'}
 
 class AssignControllers(Operator):
@@ -1320,10 +1371,10 @@ class Overview(Panel):
     bl_order = 0
 
     def draw(self, context):
-        global devkit_registered
+        global _devkit_registered
         layout = self.layout
 
-        if not devkit_registered:
+        if not _devkit_registered:
             row = layout.row(align=True)
             row.alignment = "CENTER"
             row.label(text="Devkit is setting up...", icon="INFO")
@@ -1835,14 +1886,13 @@ CLASSES = [
 ]
 
 def delayed_setup(dummy=None) -> None:
-    global devkit_registered  
-    if devkit_registered:
+    global _devkit_registered  
+    if _devkit_registered:
         return None
     context = bpy.context
     link_tri_modifier()
     assign_controller_meshes()
     ModelDrivers()
-    DevkitWindowProps.shpk_bools()
 
     try:
         area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
@@ -1855,15 +1905,15 @@ def delayed_setup(dummy=None) -> None:
     except:
         pass
     
-    devkit_registered = True
+    _devkit_registered = True
     return None
 
 @persistent
 def cleanup_props(dummy=None) -> None:
-    global devkit_registered
+    global _devkit_registered
     if not bpy.data.texts.get("devkit.py"):
         unregister()
-        devkit_registered = False
+        _devkit_registered = False
 
 def get_devkit_props() -> DevkitProps:
     return bpy.context.scene.ya_devkit_props
@@ -1882,6 +1932,7 @@ def set_devkit_properties() -> None:
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
+    DevkitWindowProps.shpk_bools()
  
 def register() -> None:
     for cls in CLASSES:
