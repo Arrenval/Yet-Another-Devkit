@@ -13,20 +13,20 @@ _msgbus_col          = None
 
 def assign_controller_meshes():
     props = get_devkit_props()
-    mesh_names = ["Torso", "Waist", "Hands", "Feet", "Mannequin"]
+    mesh_names = ["Torso", "Waist", "Hands", "Feet", "Mannequin", "Chest Controller", "Body Controller"]
     
     for mesh_name in mesh_names:
         obj = None
 
         for scene_obj in bpy.context.scene.objects:
-            if scene_obj.type == "MESH" and scene_obj.data.name == mesh_name:
+            if scene_obj.type == "MESH" and scene_obj.data.name.startswith(mesh_name.replace(" ", "")):
                 obj = scene_obj
                 break
         
         if obj:
             if mesh_name == "Waist":
                 mesh_name = "Legs"
-            prop_name = f"yam_{mesh_name.lower()}"
+            prop_name = f"yam_{mesh_name.lower().replace(' ', '_')}"
             setattr(props, prop_name, obj)
 
 def get_object_from_mesh(mesh_name: str) -> Object | None:
@@ -500,8 +500,8 @@ class TorsoState(PropertyGroup):
         if self.lavabod:
             return [
             ("0", "Omoi", "Biggest Lavatiddy"),
-            ("1", "Teardrop", "Medium lavatiddy"),
-            ("2", "Cupcake", "Small lavatiddy"),
+            ("1", "Teardrop", "Medium Lavatiddy"),
+            ("2", "Cupcake", "Small Lavatiddy"),
             ("3", "Masc", "Yet Another Masc"),
         ]
 
@@ -1007,7 +1007,7 @@ class DevkitWindowProps(PropertyGroup):
 
     @staticmethod
     def export_bools() -> None:
-        """These are used in Yet Another Addon's batch export menu to very which shapes are available in the current kit."""
+        """These are used in Yet Another Addon's batch export menu to verify which shapes are available in the current kit."""
         for shape, (name, slot, shape_category, description, body, key) in DevkitProps.ALL_SHAPES.items():
             slot_lower = slot.lower().replace("/", " ")
             name_lower = name.lower().replace(" ", "_")
@@ -1022,7 +1022,7 @@ class DevkitWindowProps(PropertyGroup):
 
     @staticmethod
     def shpk_bools() -> None:
-        """These are used in Yet Another Addon's shape key menu to very which shapes are available in the current kit."""
+        """These are used in Yet Another Addon's shape key menu to verify which shapes are available in the current kit."""
         for shape, (name, slot, shape_category, description, body, key) in DevkitProps.ALL_SHAPES.items():
             if key == "":
                 continue
@@ -1031,7 +1031,7 @@ class DevkitWindowProps(PropertyGroup):
             if shape_category == "Vagina":
                 continue
             slot_lower = slot.lower().replace("/", " ")
-            key_lower = key.lower().replace(" ", "_")
+            key_lower = key.lower().replace("- ", "").replace("-", "").replace(" ", "_")
 
             prop_name = f"shpk_{slot_lower}_{key_lower}"
             prop = BoolProperty(
@@ -1039,13 +1039,14 @@ class DevkitWindowProps(PropertyGroup):
                 description=description,
                 default=False,
                 )
-            setattr(DevkitProps, prop_name, prop)
+            setattr(DevkitWindowProps, prop_name, prop)
 
     devkit_triangulation: BoolProperty(
         default=True,
         name="Triangulation",
         description="Toggles triangulation of the devkit",
-        update=lambda self, context: bpy.context.view_layer.update()) # type: ignore
+        update=lambda self, context: bpy.context.view_layer.update()
+        ) # type: ignore
     
     yas_storage: EnumProperty(
         name="",
@@ -1054,7 +1055,8 @@ class DevkitWindowProps(PropertyGroup):
             ('ALL', "All Weights", "Store all YAS weights."),
             ('GEN', "Genitalia", "Store all genitalia related weights.")
         ]
-        ) # type: ignore
+        ) # type: ignore 
+    
     if TYPE_CHECKING:
         overview_ui: str
         devkit_triangulation: bool
@@ -1098,11 +1100,11 @@ class DevkitProps(PropertyGroup):
             "Tsukareta+":   ("Tsukareta+",   "Chest",        "Medium", "Tsukareta, but saggier",                              False,               ""),
             "Mini":         ("Mini",         "Chest",        "Medium", "Medium, but smaller",                                 False,               ""),
             "Small":        ("Small",        "Chest",        "Small",  "Standard Small",                                      False,               "SMALL"),
-            "Flat":         ("Flat",         "Chest",        "Masc",   "Yet Another Masc",                                    True,               "MASC"),
+            "Flat":         ("Flat",         "Chest",        "Masc",   "Yet Another Masc",                                    True,                "MASC"),
             "Pecs":         ("Pecs",         "Chest",        "Masc",   "Defined Pecs for Masc",                               False,               ""),
             "Lava Omoi":    ("Lava Omoi",    "Chest",        "Large",  "Biggest Lavatiddy",                                   False,               ""),
-            "Teardrop":     ("Teardrop",     "Chest",        "Medium", "Medium Lavatiddy",                                    False,               ""),
-            "Cupcake":      ("Cupcake",      "Chest",        "Small",  "Small Lavatiddy",                                     False,               ""),
+            "Teardrop":     ("Teardrop",     "Chest",        "Medium", "Medium Lavatiddy",                                    False,               "-- Teardrop"),
+            "Cupcake":      ("Cupcake",      "Chest",        "Small",  "Small Lavatiddy",                                     False,               "--- Cupcake"),
             "Sugar":        ("Sugar",        "Chest",        "Small",  "Smallest Lavatiddy",                                  False,               ""),
             "YAB":          ("YAB",          "Chest",        "",       "Base size",                                           True,                "Rue"),
             "Rue":          ("Rue",          "Chest",        "",       "Adds tummy",                                          True,                "Rue"),
@@ -1199,35 +1201,49 @@ class DevkitProps(PropertyGroup):
         type=Object,
         name="",
         description="Essential for devkit functionality",
-        poll=lambda self, obj: obj.type == "MESH" and "Torso" in obj.data.name
+        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("Torso")
     ) # type: ignore
     
     yam_legs: PointerProperty(
         type=Object,
         name="",
         description="Essential for devkit functionality",
-        poll=lambda self, obj: obj.type == "MESH" and "Waist" in obj.data.name
+        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("Waist")
     ) # type: ignore
 
     yam_hands: PointerProperty(
         type=Object,
         name="",
         description="Essential for devkit functionality",
-        poll=lambda self, obj: obj.type == "MESH" and "Hands" in obj.data.name
+        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("Hands")
     ) # type: ignore
 
     yam_feet: PointerProperty(
         type=Object,
         name="",
         description="Essential for devkit functionality",
-        poll=lambda self, obj: obj.type == "MESH" and "Feet" in obj.data.name
+        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("Feet")
     ) # type: ignore
 
     yam_mannequin: PointerProperty(
         type=Object,
         name="",
         description="Essential for devkit functionality",
-        poll=lambda self, obj: obj.type == "MESH" and "Mannequin" in obj.data.name
+        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("Mannequin")
+    ) # type: ignore
+
+    yam_chest_controller: PointerProperty(
+        type=Object,
+        name="",
+        description="Required for Yet Another Addon shape transfer",
+        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("ChestController")
+    ) # type: ignore  
+
+    yam_body_controller: PointerProperty(
+        type=Object,
+        name="",
+        description="Required for Yet Another Addon shape transfer",
+        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("BodyController")
     ) # type: ignore  
 
 
@@ -1319,6 +1335,9 @@ class DevkitProps(PropertyGroup):
         yam_hands          : Object
         yam_feet           : Object
         yam_mannequin      : Object
+
+        yam_chest_controller: Object
+        yam_body_controller : Object
 
         mannequin_state: MannequinState
 
@@ -1604,6 +1623,14 @@ class Overview(Panel):
             row = aligned_row(col, "Mannequin:", "yam_mannequin", self.props)
             row.label(text="", icon=get_conditional_icon(self.props.yam_mannequin, if_false="ERROR"))
 
+            col.separator()
+
+            row = aligned_row(col, "Chest Shapes:", "yam_chest_controller", self.props)
+            row.label(text="", icon=get_conditional_icon(self.props.yam_chest_controller, if_false="ERROR"))
+
+            row = aligned_row(col, "Body Shapes:", "yam_body_controller", self.props)
+            row.label(text="", icon=get_conditional_icon(self.props.yam_body_controller, if_false="ERROR"))
+
             row = box.row(align=True)
             row.alignment = "CENTER"
             row.scale_x = 1.9
@@ -1640,7 +1667,7 @@ class Overview(Panel):
             row = box.row(align=True)
             col = row.column()
             
-            col.operator("wm.url_open", text="Devkit Guide").url = "https://docs.google.com/document/d/1WRKKUZZsAzDOTpt6F7iJkN8TDvwDBm0s0Z4DHdWqT_o/edit?usp=sharing"
+            col.operator("wm.url_open", text="Devkit Guide").url = "https://github.com/Arrenval/Yet-Another-Devkit/wiki"
             col.separator(factor=1, type="LINE")
 
             col.operator("wm.url_open", text="Discord").url = "https://discord.gg/bnuuybooty"
@@ -1924,6 +1951,7 @@ class Overview(Panel):
     
         return icon, text
 
+
 CLASSES = [
     DevkitWindowProps,
     CollectionState,
@@ -1939,6 +1967,7 @@ CLASSES = [
     AssignControllers,
     Overview
 ]
+
 
 def delayed_setup(dummy=None) -> None:
     global _devkit_registered  
@@ -2019,7 +2048,7 @@ def set_devkit_properties() -> None:
     bpy.types.WindowManager.ya_devkit_window = PointerProperty(
         type=DevkitWindowProps)
     
-    bpy.types.Scene.ya_devkit_ver = (0, 17, 1)
+    bpy.types.Scene.ya_devkit_ver = (0, 18, 0)
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
@@ -2042,7 +2071,6 @@ def register() -> None:
     bpy.app.handlers.load_post.append(col_exclude_msgbus)
     bpy.app.handlers.load_post.append(cleanup_props)
     
-
 def unregister() -> None: 
     for cls in reversed(CLASSES):
         try:
