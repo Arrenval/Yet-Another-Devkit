@@ -393,7 +393,7 @@ class ModelDrivers():
                 create_scene_driver(
                     target_keys[key],
                     'value',
-                    [("clawsies", body_path)],
+                    [("clawsies", self._get_data_path(obj_str, "clawsies"))],
                     expression
                     )
 
@@ -1296,6 +1296,7 @@ class DevkitProps(PropertyGroup):
 
     chest_shape_enum: EnumProperty(
         name= "",
+        default=1,
         description= "Select a size",
         items=_get_listable_shapes,
         update=_apply_preset
@@ -1977,6 +1978,8 @@ def delayed_setup(dummy=None) -> None:
     link_tri_modifier()
     assign_controller_meshes()
     ModelDrivers()
+    get_devkit_props().chest_shape_enum = "Large"
+
 
     try:
         area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
@@ -1996,8 +1999,10 @@ def delayed_setup(dummy=None) -> None:
 def cleanup_props(dummy=None) -> None:
     global _devkit_registered
     if not bpy.data.texts.get("devkit.py"):
-        unregister()
-        _devkit_registered = False
+        try:
+            unregister()
+        finally:
+            _devkit_registered = False
 
 def collection_exclude(dummy=None):
     global _syncing_collections
