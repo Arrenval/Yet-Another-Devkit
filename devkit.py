@@ -702,120 +702,95 @@ class MannequinState(TorsoState, LegState, HandState, FeetState):
 
 class CollectionState(PropertyGroup):
 
-    def update_skeleton(self, context: Context) -> None:
+    def collection_dependencies(self, context: Context, target: str) -> None:
+        global _syncing_collections
         if _syncing_collections:
             return
-        
-        context.view_layer.layer_collection.children["Skeleton"].exclude = not self.skeleton
-    
-    def update_chest(self, context: Context) -> None:
-        if _syncing_collections:
-            return
-        
-        if not self.chest:
-            self.nipple_piercings = False
-    
-        context.view_layer.layer_collection.children["Chest"].exclude = not self.chest
-    
-    def update_nipple_piercings(self, context: Context) -> None:
-        if _syncing_collections:
-            return
-        
-        context.view_layer.layer_collection.children["Chest"].children["Nipple Piercings"].exclude = not self.nipple_piercings
-    
-    def update_legs(self, context: Context) -> None:
-        if _syncing_collections:
-            return
-        
-        context.view_layer.layer_collection.children["Legs"].exclude = not self.legs
 
-    def update_pubes(self, context: Context) -> None:
-        if _syncing_collections:
-            return
-        
-        context.view_layer.layer_collection.children["Legs"].children["Pubes"].exclude = not self.pubes
-    
-    def update_hands(self, context: Context) -> None:
-        if _syncing_collections:
-            return
-        
-        if not self.hands:
-            self.nails    = False
-            self.clawsies = False
+        _syncing_collections = True
+        try:
+            if target in ("hands", "nails", "clawsies"):
+                self._resolve_hands(context, target)
 
-        context.view_layer.layer_collection.children["Hands"].exclude = not self.hands
+            elif target in ("feet", "toenails", "toe_clawsies"):
+                self._resolve_feet(context, target)
 
-        if self.hands:
-            self.nails    = True
-            self.clawsies = False
+            elif target == "chest":
+                if not self.chest:
+                    self.nipple_piercings = False
 
-    def update_nails(self, context: Context) -> None:
-        if _syncing_collections:
-            return
-        
-        if self.nails:
-            self.clawsies = False
-        elif self.hands:
-            self.clawsies = True
-        context.view_layer.layer_collection.children["Hands"].children["Nails"].exclude = not self.nails
-    
-    def update_clawsies(self, context: Context) -> None:
-        if _syncing_collections:
-            return
-        
-        if self.clawsies:
-            self.nails = False
-        elif self.hands:
-            self.nails = True
+            self._update_collections(context)
 
-        context.view_layer.layer_collection.children["Hands"].children["Clawsies"].exclude = not self.clawsies
-    
-    def update_practical(self, context: Context) -> None:
-        if _syncing_collections:
-            return
+        finally:
+            _syncing_collections = False
         
-        context.view_layer.layer_collection.children["Hands"].children["Nails"].children["Practical Uses"].exclude = not self.practical
-    
-    def update_feet(self, context: Context) -> None:
-        if _syncing_collections:
-            return
-        
-        if not self.feet:
-            self.toenails = False
-            self.toe_clawsies = False
-            
-        context.view_layer.layer_collection.children["Feet"].exclude = not self.feet
+    def _resolve_hands(self, context, target: str):
+        if target == "hands":
+            if self.hands:
+                self.nails    = True
+                self.clawsies = False
+            else:
+                self.nails    = False
+                self.clawsies = False
 
-        if self.feet:
-            self.toenails = True
-            self.toe_clawsies = False
-        
-    def update_toe_clawsies(self, context: Context) -> None:
-        if _syncing_collections:
-            return
-        
-        if self.toe_clawsies:
-            self.toenails = False
-        elif self.feet:
-            self.toenails = True
+        elif target == "nails":
+            if self.nails:
+                self.clawsies = False
+            else:
+                self.clawsies = self.hands
+                
+        else:
+            if self.clawsies:
+                self.nails = False
+            else:
+                self.nails = self.hands
 
-        context.view_layer.layer_collection.children["Feet"].children["Toe Clawsies"].exclude = not self.toe_clawsies
-    
-    def update_toenails(self, context: Context) -> None:
-        if _syncing_collections:
-            return
-        
-        if self.toenails:
-            self.toe_clawsies = False
-        elif self.feet:
-            self.toe_clawsies = True
-        context.view_layer.layer_collection.children["Feet"].children["Toenails"].exclude = not self.toenails
-    
-    def update_mannequin(self, context: Context) -> None:
-        if _syncing_collections:
-            return
-        
-        context.view_layer.layer_collection.children["Mannequin"].exclude = not self.mannequin
+    def _resolve_feet(self, context, target: str):
+        if target == "feet":
+            if self.feet:
+                self.toenails     = True
+                self.toe_clawsies = False
+            else:
+                self.toenails     = False
+                self.toe_clawsies = False
+
+        elif target == "toenails":
+            if self.toenails:
+                self.toe_clawsies = False
+            else:
+                self.toe_clawsies = self.feet
+                
+        else:
+            if self.toe_clawsies:
+                self.toenails = False
+            else:
+                self.toenails = self.feet
+
+    def _update_collections(self, context: Context) -> None:
+        layer_col = context.view_layer.layer_collection
+        chest     = layer_col.children["Chest"]
+        legs      = layer_col.children["Legs"]
+        hands     = layer_col.children["Hands"]   
+        nails     = hands.children["Nails"]
+        feet      = layer_col.children["Feet"]
+
+        layer_col.children["Skeleton"].exclude  = not self.skeleton
+        layer_col.children["Mannequin"].exclude = not self.mannequin   
+
+        chest.exclude                              = not self.chest
+        chest.children["Nipple Piercings"].exclude = not self.nipple_piercings
+
+        legs.exclude                   = not self.legs
+        legs.children["Pubes"].exclude = not self.pubes
+
+        hands.exclude                            = not self.hands
+        hands.children["Nails"].exclude          = not self.nails
+        hands.children["Clawsies"].exclude       = not self.clawsies
+        nails.children["Practical Uses"].exclude = not self.practical
+
+        feet.exclude                            = not self.feet
+        feet.children["Toe Clawsies"].exclude   = not self.toe_clawsies
+        feet.children["Toenails"].exclude       = not self.toenails
     
     def update_export(self, context: Context) -> None:
         resources    = context.view_layer.layer_collection.children["Resources"]
@@ -850,91 +825,91 @@ class CollectionState(PropertyGroup):
         name="",
         description="Skeletons reside here",
         default=True,
-        update=update_skeleton
+        update=lambda self, context: self.collection_dependencies(context, "skeleton")
     ) # type: ignore
 
     chest: BoolProperty(
         name="",
         description="bob",
         default=True,
-        update=update_chest
+        update=lambda self, context: self.collection_dependencies(context, "chest")
     ) # type: ignore
 
     nipple_piercings: BoolProperty(
         name="",
         description="Ouchies",
         default=False,
-        update=update_nipple_piercings
+        update=lambda self, context: self.collection_dependencies(context, "nipple_piercings")
     ) # type: ignore
 
     legs: BoolProperty(
         name="",
         description="Leggies",
         default=False,
-        update=update_legs
+        update=lambda self, context: self.collection_dependencies(context, "legs")
     ) # type: ignore
     
     pubes: BoolProperty(
         name="",
         description="pubs",
         default=False,
-        update=update_pubes
+        update=lambda self, context: self.collection_dependencies(context, "pubes")
     ) # type: ignore
 
     hands: BoolProperty(
         name="",
         description="jazz",
         default=False,
-        update=update_hands
+        update=lambda self, context: self.collection_dependencies(context, "hands")
     ) # type: ignore
 
     nails: BoolProperty(
         name="",
         description="stabbies",
         default=False,
-        update=update_nails
+        update=lambda self, context: self.collection_dependencies(context, "nails")
     ) # type: ignore
 
     clawsies: BoolProperty(
         name="",
         description="most stabbies",
         default=False,
-        update=update_clawsies
+        update=lambda self, context: self.collection_dependencies(context, "clawsies")
     ) # type: ignore
 
     practical: BoolProperty(
         name="",
         description="stabbies",
         default=False,
-        update=update_practical
+        update=lambda self, context: self.collection_dependencies(context, "practical")
     ) # type: ignore
 
     feet: BoolProperty(
         name="",
         description="toesies",
         default=False,
-        update=update_feet
+        update=lambda self, context: self.collection_dependencies(context, "feet")
     ) # type: ignore
 
     toenails: BoolProperty(
         name="",
         description="just nails",
         default=False,
-        update=update_toenails
+        update=lambda self, context: self.collection_dependencies(context, "toenails")
     ) # type: ignore
 
     toe_clawsies: BoolProperty(
         name="",
         description="more clawsies",
         default=False,
-        update=update_toe_clawsies
+        update=lambda self, context: self.collection_dependencies(context, "toe_clawsies")
     ) # type: ignore
 
     mannequin: BoolProperty(
         name="",
         description="mannequin",
         default=False,
-        update=update_mannequin
+        update=lambda self, context: self.collection_dependencies(context, "mannequin")
     ) # type: ignore
 
     export: BoolProperty(
@@ -2053,7 +2028,7 @@ def set_devkit_properties() -> None:
     bpy.types.WindowManager.ya_devkit_window = PointerProperty(
         type=DevkitWindowProps)
     
-    bpy.types.Scene.ya_devkit_ver = (0, 18, 0)
+    bpy.types.Scene.ya_devkit_ver = (0, 18, 1)
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
