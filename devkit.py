@@ -1,9 +1,11 @@
 import bpy
 
-from typing           import TYPE_CHECKING, Iterable
-from bpy.props        import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty, IntProperty
+from typing           import TYPE_CHECKING
+from bpy.props        import StringProperty, EnumProperty, BoolProperty, PointerProperty, FloatProperty, CollectionProperty
 from bpy.types        import Operator, Panel, PropertyGroup, Object, Context, UILayout, ShapeKey, Driver, Key
+from collections.abc  import Iterable
 from bpy.app.handlers import persistent
+
 
 
 _devkit_registered   = False
@@ -99,6 +101,38 @@ class ModelDrivers():
         self.feet_drivers(mq=True)
 
     def torso_drivers(self, mq=False) -> None:
+
+        def lava_nips_correction(target: ShapeKey, value):
+            try:
+                target.driver_remove('mute')
+            except:
+                pass
+            
+            driver = target.driver_add('mute').driver
+            driver.type = 'SCRIPTED' 
+            driver.expression = f"lava == 0 or size != {count - 1} or sugar > 0"
+            
+            var = driver.variables.new()
+            var.name = 'size'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = bpy.context.scene
+            var.targets[0].data_path = chest_path
+
+            var = driver.variables.new()
+            var.name = 'lava'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'SCENE'
+            var.targets[0].id = bpy.context.scene
+            var.targets[0].data_path = lava_path
+
+            var = driver.variables.new()
+            var.name = 'sugar'
+            var.type = 'SINGLE_PROP'
+            var.targets[0].id_type = 'KEY'
+            var.targets[0].id = obj.data.shape_keys
+            var.targets[0].data_path = 'key_blocks["--- Sugar"].value'
+
         if mq:
             obj     = self.props.yam_mannequin
             obj_str = 'mannequin_state'
@@ -166,6 +200,9 @@ class ModelDrivers():
             if key in ("-- Teardrop", "--- Cupcake"):
                 prop = 'value'
                 expression = f"lava == 1 and size == {count - 1}"
+            elif key == "--- Soft Nips":
+                lava_nips_correction(target_keys[key], count - 1)
+                continue
             else:
                 prop = 'mute'
                 expression = f"lava == 0 or size != {count - 1}"
