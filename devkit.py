@@ -151,7 +151,7 @@ class ModelDrivers():
             "MASC":   3
         }
         option_keys = ["Buff", "Rue", "Lavabod"]
-        lava_keys   = ["- Soft Nips", "-- Soft Nips", "-- Teardrop", "--- Soft Nips", "--- Cupcake"]
+        lava_keys   = ["- Soft Nips", "-- Soft Nips", "-- Teardrop", "--- Soft Nips", "--- Cupcake", "--- Sugar"]
         lava_skip   = ["Omoi", "Uranus", "Nops", "Mini", "Sayonara"]
 
         var_paths  = [("size", chest_path)]
@@ -1769,7 +1769,7 @@ class Overview(Panel):
                 continue
             if lavabod and any(skip in key.name for skip in lava_skip):
                 continue
-            if not lavabod and "Soft" in key.name:
+            if not lavabod and ("Soft" in key.name or key.name == "--- Sugar"):
                 continue
             if key.name in skip:
                 continue
@@ -2075,7 +2075,7 @@ def set_devkit_properties() -> None:
     bpy.types.WindowManager.ya_devkit_window = PointerProperty(
         type=DevkitWindowProps)
     
-    bpy.types.Scene.ya_devkit_ver = (0, 18, 2)
+    bpy.types.Scene.ya_devkit_ver = (0, 18, 3)
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
