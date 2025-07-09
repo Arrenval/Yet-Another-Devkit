@@ -1937,30 +1937,41 @@ class Overview(Panel):
 
         layout.separator(factor=0.1)
    
-    def yas_status(self, attr: str) -> tuple[str, str]:
+    def yas_status(self) -> tuple[str, str]:
         no_weights  = "No stored weights."
         gen_weights = "Genitalia weights stored."
         all_weights = "All weights stored."
+        phy_weights = "Physics weights stored."
+        com_weights = "Physics, genitalia, weights stored."
         vertices    = "Vertex count changed."
         missing_obj = "Check your devkit settings."
 
-        obj: Object = getattr(self.props, attr)
+        obj = bpy.context.active_object
 
         if not obj:
             icon = 'ERROR'
             text = missing_obj
         
-        elif not obj.yas_groups:
+        elif not obj.yas.v_groups:
             icon = 'X'
             text = no_weights
         
-        elif obj.yas_groups[0].old_count != len(obj.data.vertices):
+        elif obj.yas.old_count != len(obj.data.vertices):
             icon = 'ERROR'
             text = vertices
 
         else:
             icon = 'CHECKMARK'
-            text = all_weights if any(group.all_groups for group in obj.yas_groups) else gen_weights
+            if obj.yas.all_groups:
+                text = all_weights
+            elif obj.yas.genitalia and obj.yas.physics:
+                text = com_weights
+            elif obj.yas.genitalia:
+                text = gen_weights
+            elif obj.yas.physics:
+                text = phy_weights
+            else:
+                text = "Undefined weights stored."
     
         return icon, text
 
@@ -1991,7 +2002,6 @@ def delayed_setup(dummy=None) -> None:
     assign_controller_meshes()
     ModelDrivers()
     get_devkit_props().chest_shape_enum = "Large"
-
 
     try:
         area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
@@ -2065,7 +2075,7 @@ def set_devkit_properties() -> None:
     bpy.types.WindowManager.ya_devkit_window = PointerProperty(
         type=DevkitWindowProps)
     
-    bpy.types.Scene.ya_devkit_ver = (0, 18, 1)
+    bpy.types.Scene.ya_devkit_ver = (0, 18, 2)
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
