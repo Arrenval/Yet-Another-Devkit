@@ -1083,8 +1083,9 @@ class DevkitWindowProps(PropertyGroup):
         name="",
         description="Select what vertex groups to store",
         items=[
-            ('ALL', "All Weights", "Store all YAS weights."),
-            ('GEN', "Genitalia", "Store all genitalia related weights.")
+            ('ALL', "All Weights", "Store all YAS weights"),
+            ('PHYS', "Physics", "Store all thigh/butt physics related weights"),
+            ('GEN', "Genitalia", "Store all genitalia related weights")
         ]
         ) # type: ignore 
     
@@ -1438,7 +1439,7 @@ class ResetDrivers(Operator):
     
     def execute(self, context):
         ModelDrivers()
-        self.report({'INFO'}, "Reset drivers!!")
+        self.report({'INFO'}, "Drivers reset!")
         return {'FINISHED'}
 
 
@@ -1862,6 +1863,12 @@ class Overview(Panel):
         layout.separator(factor=0.5, type='LINE')
 
         for name, obj, attr in devkit_obj:
+            group_bool = {
+                "ALL": obj.yas.all_groups,
+                "GEN": obj.yas.genitalia or obj.yas.all_groups,
+                "PHYS": obj.yas.physics or obj.yas.all_groups
+            }
+
             row = layout.row(align=True)
             split = row.split(factor=0.25, align=True)
             split.alignment = 'RIGHT'
@@ -1870,14 +1877,14 @@ class Overview(Panel):
             details = split.row(align=True)
             icon, text = self.yas_status(attr)
             details.label(text=text, icon=icon)
-            if obj.yas_groups:
-                op = details.operator("ya.yas_manager", text="", icon='FILE_PARENT')
-                op.mode = 'RESTORE'
-                op.target = name.upper()
-            else:
+            if not group_bool[self.window.yas_storage]:
                 op = details.operator("ya.yas_manager", text="", icon='FILE_TICK')
                 op.mode = self.window.yas_storage
                 op.target = name.upper()
+            if obj.yas.v_groups:
+                op = details.operator("ya.yas_manager", text="", icon='FILE_PARENT')
+                op.mode = 'RESTORE'
+                op.target = name.upper()         
             
         row = layout.row(align=True)
  
@@ -1958,7 +1965,7 @@ class Overview(Panel):
 
         layout.separator(factor=0.1)
    
-    def yas_status(self) -> tuple[str, str]:
+    def yas_status(self, attr: str) -> tuple[str, str]:
         no_weights  = "No stored weights."
         gen_weights = "Genitalia weights stored."
         all_weights = "All weights stored."
@@ -1967,7 +1974,7 @@ class Overview(Panel):
         vertices    = "Vertex count changed."
         missing_obj = "Check your devkit settings."
 
-        obj = bpy.context.active_object
+        obj: Object = getattr(self.props, attr)
 
         if not obj:
             icon = 'ERROR'
@@ -2010,6 +2017,7 @@ CLASSES = [
     DevkitProps,
     TriangulateLink,
     DeactivateKit,
+    ResetDrivers,
     AssignControllers,
     Overview
 ]
@@ -2098,7 +2106,9 @@ def set_devkit_properties() -> None:
         type=DevkitWindowProps)
     
     bpy.types.Object.yakit = PointerProperty(
-        type=DevkitController)
+        name="Devkit Controller Objects",
+        type=DevkitController
+        )
     
     bpy.types.Scene.ya_devkit_ver = (0, 19, 0)
 
