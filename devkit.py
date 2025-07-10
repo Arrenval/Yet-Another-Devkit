@@ -7,29 +7,32 @@ from collections.abc  import Iterable
 from bpy.app.handlers import persistent
 
 
-
 _devkit_registered   = False
 _syncing_collections = False
 _msgbus_col          = None
 
 
-def assign_controller_meshes():
-    props = get_devkit_props()
-    mesh_names = ["Torso", "Waist", "Hands", "Feet", "Mannequin", "Chest Controller", "Body Controller"]
-    
-    for mesh_name in mesh_names:
-        obj = None
+def assign_devkit_meshes():
+    props      = get_devkit_props()
+    mesh_names = ["Torso", "Waist", "Hands", "Feet", "Mannequin", "Shapes"]
 
-        for scene_obj in bpy.context.scene.objects:
-            if scene_obj.type == "MESH" and scene_obj.data.name.startswith(mesh_name.replace(" ", "")):
-                obj = scene_obj
-                break
-        
-        if obj:
-            if mesh_name == "Waist":
-                mesh_name = "Legs"
-            prop_name = f"yam_{mesh_name.lower().replace(' ', '_')}"
-            setattr(props, prop_name, obj)
+    for mesh_name in mesh_names:
+        attr_name = "legs" if mesh_name == "Waist" else mesh_name.lower()
+        prop_name = f"yam_{attr_name}"
+        for obj in bpy.context.scene.objects:
+            if not obj.yakit:
+                continue
+            if not obj.type == 'MESH':
+                continue
+            if getattr(obj.yakit, "controller") == mesh_name.upper():
+                setattr(props, prop_name, obj)
+ 
+        for obj in bpy.context.scene.objects:
+            if not obj.type == 'MESH':
+                continue
+            if obj.data.name == mesh_name and not getattr(props, prop_name):
+                setattr(props, prop_name, obj)
+                setattr(obj.yakit, "controller", mesh_name.upper())
 
 def get_object_from_mesh(mesh_name: str) -> Object | None:
     props = get_devkit_props()
@@ -42,8 +45,7 @@ def get_object_from_mesh(mesh_name: str) -> Object | None:
     }
 
     if controllers[mesh_name] is None:
-        assign_controller_meshes()
-
+        assign_devkit_meshes()
 
     return controllers[mesh_name]
 
@@ -974,7 +976,24 @@ class CollectionState(PropertyGroup):
         export          : bool
 
 
+class DevkitController(PropertyGroup):
+    controller: EnumProperty(
+        name="",
+        description="Devkit controller type",
+        default="NONE",
+        items=[
+            ("NONE",  "NONE", ""),
+            ("TORSO", "Torso", ""),
+            ("WAIST", "Legs", ""),
+            ("HANDS", "Hands", ""),
+            ("FEET",  "Feet", ""),
+            ("MANNEQUIN", "Mannequin", ""),
+            ("SHAPES", "Shapes", "")
+        ]
+        ) #type: ignore
+
 class DevkitWindowProps(PropertyGroup):
+    
     overview_ui: EnumProperty(
         name= "",
         description= "Select an overview",
@@ -1213,51 +1232,43 @@ class DevkitProps(PropertyGroup):
         type=Object,
         name="",
         description="Essential for devkit functionality",
-        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("Torso")
+        poll=lambda self, obj: obj.type == "MESH" and obj.yakit.controller == "TORSO"
     ) # type: ignore
     
     yam_legs: PointerProperty(
         type=Object,
         name="",
         description="Essential for devkit functionality",
-        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("Waist")
+        poll=lambda self, obj: obj.type == "MESH" and obj.yakit.controller == "WAIST"
     ) # type: ignore
 
     yam_hands: PointerProperty(
         type=Object,
         name="",
         description="Essential for devkit functionality",
-        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("Hands")
+        poll=lambda self, obj: obj.type == "MESH" and obj.yakit.controller == "HANDS"
     ) # type: ignore
 
     yam_feet: PointerProperty(
         type=Object,
         name="",
         description="Essential for devkit functionality",
-        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("Feet")
+        poll=lambda self, obj: obj.type == "MESH" and obj.yakit.controller == "FEET"
     ) # type: ignore
 
     yam_mannequin: PointerProperty(
         type=Object,
         name="",
         description="Essential for devkit functionality",
-        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("Mannequin")
+        poll=lambda self, obj: obj.type == "MESH" and obj.yakit.controller == "MANNEQUIN"
     ) # type: ignore
 
-    yam_chest_controller: PointerProperty(
+    yam_shapes: PointerProperty(
         type=Object,
         name="",
         description="Required for Yet Another Addon shape transfer",
-        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("ChestController")
+        poll=lambda self, obj: obj.type == "MESH" and obj.yakit.controller == "SHAPES"
     ) # type: ignore  
-
-    yam_body_controller: PointerProperty(
-        type=Object,
-        name="",
-        description="Required for Yet Another Addon shape transfer",
-        poll=lambda self, obj: obj.type == "MESH" and obj.data.name.startswith("BodyController")
-    ) # type: ignore  
-
 
     def _get_listable_shapes(self, context) -> list:
         items = [("", "LARGE:", "")]
@@ -1278,6 +1289,9 @@ class DevkitProps(PropertyGroup):
         return items
 
     def _apply_preset(self, context) -> None:
+        if _devkit_registered:
+            return
+        
         size       = self.chest_shape_enum
         preset     = self.get_shape_presets(size)
         lava_sizes = ("Lava Omoi", "Teardrop", "Cupcake", "Sugar")
@@ -1349,8 +1363,7 @@ class DevkitProps(PropertyGroup):
         yam_feet           : Object
         yam_mannequin      : Object
 
-        yam_chest_controller: Object
-        yam_body_controller : Object
+        yam_shapes: Object
 
         mannequin_state: MannequinState
 
@@ -1414,8 +1427,18 @@ class AssignControllers(Operator):
     bl_description = "Automatically find and assign controller meshes"
     
     def execute(self, context):
-        assign_controller_meshes()
+        assign_devkit_meshes()
         self.report({'INFO'}, "Controller meshes updated!")
+        return {'FINISHED'}
+    
+class ResetDrivers(Operator):
+    bl_idname = "yakit.reset_drivers"
+    bl_label = "Reset Drivers"
+    bl_description = "Automatically find and assign controller meshes"
+    
+    def execute(self, context):
+        ModelDrivers()
+        self.report({'INFO'}, "Reset drivers!!")
         return {'FINISHED'}
 
 
@@ -1638,11 +1661,8 @@ class Overview(Panel):
 
             col.separator()
 
-            row = aligned_row(col, "Chest Shapes:", "yam_chest_controller", self.props)
-            row.label(text="", icon=get_conditional_icon(self.props.yam_chest_controller, if_false="ERROR"))
-
-            row = aligned_row(col, "Body Shapes:", "yam_body_controller", self.props)
-            row.label(text="", icon=get_conditional_icon(self.props.yam_body_controller, if_false="ERROR"))
+            row = aligned_row(col, "Shapes:", "yam_shapes", self.props)
+            row.label(text="", icon=get_conditional_icon(self.props.yam_shapes, if_false="ERROR"))
 
             row = box.row(align=True)
             row.alignment = "CENTER"
@@ -1665,6 +1685,7 @@ class Overview(Panel):
             row.alignment = "CENTER"
             col = row.column(align=True)
             col.operator("outliner.orphans_purge", text="Delete Unused Data")
+            col.operator("yakit.reset_drivers", text="Reset Drivers")
             col.operator("yakit.deactivate", text="Deactivate Devkit")
 
             layout.separator(factor=1, type="LINE")
@@ -1985,6 +2006,7 @@ CLASSES = [
     HandState,
     FeetState,
     MannequinState,
+    DevkitController,
     DevkitProps,
     TriangulateLink,
     DeactivateKit,
@@ -1999,7 +2021,7 @@ def delayed_setup(dummy=None) -> None:
         return None
     context = bpy.context
     link_tri_modifier()
-    assign_controller_meshes()
+    assign_devkit_meshes()
     ModelDrivers()
     get_devkit_props().chest_shape_enum = "Large"
 
@@ -2075,7 +2097,10 @@ def set_devkit_properties() -> None:
     bpy.types.WindowManager.ya_devkit_window = PointerProperty(
         type=DevkitWindowProps)
     
-    bpy.types.Scene.ya_devkit_ver = (0, 18, 3)
+    bpy.types.Object.yakit = PointerProperty(
+        type=DevkitController)
+    
+    bpy.types.Scene.ya_devkit_ver = (0, 19, 0)
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
