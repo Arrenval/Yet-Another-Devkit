@@ -1290,7 +1290,7 @@ class DevkitProps(PropertyGroup):
         return items
 
     def _apply_preset(self, context) -> None:
-        if _devkit_registered:
+        if not _devkit_registered:
             return
         
         size       = self.chest_shape_enum
