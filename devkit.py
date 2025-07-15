@@ -769,8 +769,9 @@ class CollectionState(PropertyGroup):
                 self.nails    = True
                 self.clawsies = False
             else:
-                self.nails    = False
-                self.clawsies = False
+                self.nails     = False
+                self.clawsies  = False
+                self.practical = False
 
         elif target == "nails":
             if self.nails:
@@ -2110,7 +2111,7 @@ def set_devkit_properties() -> None:
         type=DevkitController
         )
     
-    bpy.types.Scene.ya_devkit_ver = (0, 19, 0)
+    bpy.types.Scene.ya_devkit_ver = (0, 19, 1)
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
