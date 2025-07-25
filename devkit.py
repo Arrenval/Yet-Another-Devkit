@@ -6,7 +6,7 @@ from bpy.types        import Operator, Panel, PropertyGroup, Object, Context, UI
 from collections.abc  import Iterable
 from bpy.app.handlers import persistent
 
-
+_setup_failed        = False
 _devkit_registered   = False
 _syncing_collections = False
 _msgbus_col          = None
@@ -1423,6 +1423,19 @@ class DeactivateKit(Operator):
         _devkit_registered = False
         return {'FINISHED'}
 
+class RetrySetup(Operator):
+    bl_idname = "yakit.retry_setup"
+    bl_label = "Retry Devkit Setup"
+    bl_description = "Verify that all controller meshes are assigned before retrying"
+    
+    def execute(self, context):
+        global _setup_failed, _devkit_registered
+        try:
+            delayed_setup(None)
+            self.report({'INFO'}, "Devkit set up succesfully!")
+        finally:
+            return {'FINISHED'}
+    
 class AssignControllers(Operator):
     bl_idname = "yakit.assign_controllers"
     bl_label = "Assign Controller Meshes"
@@ -1483,15 +1496,8 @@ class Overview(Panel):
     bl_order = 0
 
     def draw(self, context):
-        global _devkit_registered
         layout = self.layout
 
-        if not _devkit_registered:
-            row = layout.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text="Devkit is setting up...", icon="INFO")
-            return
-        
         self.props  = get_devkit_props()
         self.window = get_window_props()
 
@@ -1500,6 +1506,10 @@ class Overview(Panel):
         self.legs  = self.props.yam_legs
         self.hands = self.props.yam_hands
         self.feet  = self.props.yam_feet
+
+        if not _devkit_registered:
+            self.devkit_setup(layout)
+            return
 
         self.collection = self.props.collection_state
 
@@ -1634,100 +1644,33 @@ class Overview(Panel):
                     row.alignment = "CENTER"
                     row.label(text="Requires Yet Another Addon", icon="INFO")
 
-        # SETTINGS
-
         if self.window.overview_ui == "Settings":
-
-            box = layout.box()
-            col = box.column(align=True)
-            row = col.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text="Controller Meshes:")
-
-            col.separator(factor=0.5, type="LINE")
-
-            row = aligned_row(col, "Torso:", "yam_torso", self.props)
-            row.label(text="", icon=get_conditional_icon(self.props.yam_torso, if_false="ERROR"))
-
-            row = aligned_row(col, "Legs:", "yam_legs", self.props)
-            row.label(text="", icon=get_conditional_icon(self.props.yam_legs, if_false="ERROR"))
-
-            row = aligned_row(col, "Hands:", "yam_hands", self.props)
-            row.label(text="", icon=get_conditional_icon(self.props.yam_hands, if_false="ERROR"))
-
-            row = aligned_row(col, "Feet:", "yam_feet", self.props)
-            row.label(text="", icon=get_conditional_icon(self.props.yam_feet, if_false="ERROR"))
-
-            row = aligned_row(col, "Mannequin:", "yam_mannequin", self.props)
-            row.label(text="", icon=get_conditional_icon(self.props.yam_mannequin, if_false="ERROR"))
-
-            col.separator()
-
-            row = aligned_row(col, "Shapes:", "yam_shapes", self.props)
-            row.label(text="", icon=get_conditional_icon(self.props.yam_shapes, if_false="ERROR"))
-
-            row = box.row(align=True)
-            row.alignment = "CENTER"
-            row.scale_x = 1.9
-            row.operator("yakit.assign_controllers", text="Reassign")
-
-            layout.separator(factor=1, type="LINE")
-
-            row = layout.row(align=True)
-            row.alignment = "CENTER"
-            row.prop(self.window, "devkit_triangulation", text="Triangulation")
-            row = layout.row(align=True)
-            row.alignment = "CENTER"
-            col = row.column(align=True)
-            col.operator("yakit.triangulate_link", text=("Link Triangulation"))
-
-            layout.separator(factor=1, type="LINE")
-
-            row = layout.row(align=True)
-            row.alignment = "CENTER"
-            col = row.column(align=True)
-            col.operator("outliner.orphans_purge", text="Delete Unused Data")
-            col.operator("yakit.reset_drivers", text="Reset Drivers")
-            col.operator("yakit.deactivate", text="Deactivate Devkit")
-
-            layout.separator(factor=1, type="LINE")
-
-        #INFO
+            self.devkit_settings(layout)
 
         if self.window.overview_ui == "Info":
-            box = layout.box()
-            row = box.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text="My Links:")
-            box = layout.box()
-            row = box.row(align=True)
-            col = row.column()
+            self.devkit_urls(layout)
             
-            col.operator("wm.url_open", text="Devkit Guide").url = "https://github.com/Arrenval/Yet-Another-Devkit/wiki"
-            col.separator(factor=1, type="LINE")
-
-            col.operator("wm.url_open", text="Discord").url = "https://discord.gg/bnuuybooty"
-            col.operator("wm.url_open", text="Ko-Fi").url = "https://ko-fi.com/yetanothermodder"
-            col.operator("wm.url_open", text="Bluesky").url = "https://bsky.app/profile/kejabnuuy.bsky.social"
-            
-            col.separator(factor=1, type="LINE")
-
-            col.operator("wm.url_open", text="Heliosphere").url = "https://heliosphere.app/user/Aleks"
-            col.operator("wm.url_open", text="XMA").url = "https://www.xivmodarchive.com/user/26481"
-
         if self.window.overview_ui == "Info" or self.window.overview_ui == "Settings":
-            devkit_ver = context.scene.ya_devkit_ver 
-            col = layout.column(align=True)
-            row = col.row(align=True)
-            row.alignment = "CENTER"
-            if hasattr(context.scene, "ya_addon_ver"):
-                addon_ver = context.scene.ya_addon_ver
-                row.label(text=f"Addon Ver: {addon_ver[0]}.{addon_ver[1]}.{addon_ver[2]}")
-            else: row.label(text=f"Addon Not Installed")
-            row = col.row(align=True)
-            row.alignment = "CENTER"
-            row.label(text=f"Devkit Script Ver: {'.'.join(map(str, devkit_ver))}")
-                       
+            self.version_info(layout)
+    
+    def devkit_setup(self, layout: UILayout) -> None:
+        row = layout.row(align=True)
+        row.alignment = "CENTER"
+        if _setup_failed:
+            row.label(text="Setup failed...", icon='ERROR')
+            row = layout.row(align=True)
+            row.alignment = 'CENTER'
+            col = row.column(align=True)
+            col.operator("yakit.retry_setup", text="Retry Setup")
+        else:
+            row.label(text="Devkit is setting up...", icon='INFO')
+
+        layout.separator(factor=1, type="LINE")
+
+        self.devkit_settings(layout)
+
+        self.version_info(layout)                
+    
     def collection_context(self) -> Object | None:
         # Links mesh name to the standard collections)
         body_part_collections = {
@@ -1751,7 +1694,7 @@ class Overview(Panel):
         else:
             return None
 
-    def chest_shapes(self, layout: UILayout):
+    def chest_shapes(self, layout: UILayout) -> None:
         layout.separator(factor=0.1)  
         if self.props.shape_mq_chest_bool:
             target      = self.props.mannequin_state
@@ -1805,7 +1748,7 @@ class Overview(Panel):
 
         layout.separator(factor=0.1)
 
-    def leg_shapes(self, layout: UILayout):
+    def leg_shapes(self, layout: UILayout) -> None:
         layout.separator(factor=0.1)
         if self.props.shape_mq_legs_bool:
             target = self.props.mannequin_state
@@ -1840,7 +1783,7 @@ class Overview(Panel):
         
         layout.separator(factor=0.1)
 
-    def yas_menu(self, layout: UILayout):
+    def yas_menu(self, layout: UILayout) -> None:
         devkit_obj = [
             ("Torso", self.props.yam_torso, 'yam_torso'),
             ("Legs", self.props.yam_legs, 'yam_legs'),
@@ -1889,7 +1832,7 @@ class Overview(Panel):
             
         row = layout.row(align=True)
  
-    def other_shapes(self, layout: UILayout):
+    def other_shapes(self, layout: UILayout) -> None:
         layout.separator(factor=0.1)  
         if self.props.shape_mq_other_bool:
             target      = self.props.mannequin_state
@@ -2004,6 +1947,94 @@ class Overview(Panel):
     
         return icon, text
 
+    def devkit_settings(self, layout: UILayout) -> None:
+        box = layout.box()
+        col = box.column(align=True)
+        row = col.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="Controller Meshes:")
+
+        col.separator(factor=0.5, type="LINE")
+
+        row = aligned_row(col, "Torso:", "yam_torso", self.props)
+        row.label(text="", icon=get_conditional_icon(self.props.yam_torso, if_false="ERROR"))
+
+        row = aligned_row(col, "Legs:", "yam_legs", self.props)
+        row.label(text="", icon=get_conditional_icon(self.props.yam_legs, if_false="ERROR"))
+
+        row = aligned_row(col, "Hands:", "yam_hands", self.props)
+        row.label(text="", icon=get_conditional_icon(self.props.yam_hands, if_false="ERROR"))
+
+        row = aligned_row(col, "Feet:", "yam_feet", self.props)
+        row.label(text="", icon=get_conditional_icon(self.props.yam_feet, if_false="ERROR"))
+
+        row = aligned_row(col, "Mannequin:", "yam_mannequin", self.props)
+        row.label(text="", icon=get_conditional_icon(self.props.yam_mannequin, if_false="ERROR"))
+
+        col.separator()
+
+        row = aligned_row(col, "Shapes:", "yam_shapes", self.props)
+        row.label(text="", icon=get_conditional_icon(self.props.yam_shapes, if_false="ERROR"))
+
+        row = box.row(align=True)
+        row.alignment = "CENTER"
+        col = row.column(align=True)
+        col.operator("yakit.assign_controllers", text="Reassign")
+
+        layout.separator(factor=1, type="LINE")
+
+        row = layout.row(align=True)
+        row.alignment = "CENTER"
+        row.prop(self.window, "devkit_triangulation", text="Triangulation")
+        row = layout.row(align=True)
+        row.alignment = "CENTER"
+        col = row.column(align=True)
+        col.operator("yakit.triangulate_link", text=("Link Triangulation"))
+
+        layout.separator(factor=1, type="LINE")
+
+        row = layout.row(align=True)
+        row.alignment = "CENTER"
+        col = row.column(align=True)
+        col.operator("outliner.orphans_purge", text="Delete Unused Data")
+        col.operator("yakit.reset_drivers", text="Reset Drivers")
+        col.operator("yakit.deactivate", text="Deactivate Devkit")
+
+        layout.separator(factor=1, type="LINE")
+    
+    def devkit_urls(self, layout: UILayout) -> None:
+        box = layout.box()
+        row = box.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text="My Links:")
+        box = layout.box()
+        row = box.row(align=True)
+        col = row.column()
+        
+        col.operator("wm.url_open", text="Devkit Guide").url = "https://github.com/Arrenval/Yet-Another-Devkit/wiki"
+        col.separator(factor=1, type="LINE")
+
+        col.operator("wm.url_open", text="Discord").url = "https://discord.gg/bnuuybooty"
+        col.operator("wm.url_open", text="Ko-Fi").url = "https://ko-fi.com/yetanothermodder"
+        col.operator("wm.url_open", text="Bluesky").url = "https://bsky.app/profile/kejabnuuy.bsky.social"
+        
+        col.separator(factor=1, type="LINE")
+
+        col.operator("wm.url_open", text="Heliosphere").url = "https://heliosphere.app/user/Aleks"
+        col.operator("wm.url_open", text="XMA").url = "https://www.xivmodarchive.com/user/26481"
+
+    def version_info(self, layout: UILayout) -> None:
+        devkit_ver = bpy.context.scene.ya_devkit_ver 
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        row.alignment = "CENTER"
+        if hasattr(bpy.context.scene, "ya_addon_ver"):
+            addon_ver = bpy.context.scene.ya_addon_ver
+            row.label(text=f"Addon Ver: {addon_ver[0]}.{addon_ver[1]}.{addon_ver[2]}")
+        else: row.label(text=f"Addon Not Installed")
+        row = col.row(align=True)
+        row.alignment = "CENTER"
+        row.label(text=f"Devkit Script Ver: {'.'.join(map(str, devkit_ver))}")
 
 CLASSES = [
     DevkitWindowProps,
@@ -2017,6 +2048,7 @@ CLASSES = [
     DevkitController,
     DevkitProps,
     TriangulateLink,
+    RetrySetup,
     DeactivateKit,
     ResetDrivers,
     AssignControllers,
@@ -2025,14 +2057,18 @@ CLASSES = [
 
 
 def delayed_setup(dummy=None) -> None:
-    global _devkit_registered  
+    global _devkit_registered, _setup_failed 
     if _devkit_registered:
         return None
     context = bpy.context
-    link_tri_modifier()
-    assign_devkit_meshes()
-    ModelDrivers()
-    get_devkit_props().chest_shape_enum = "Large"
+    try:
+        link_tri_modifier()
+        assign_devkit_meshes()
+        ModelDrivers()
+        get_devkit_props().chest_shape_enum = "Large"
+    except:
+        _setup_failed = True
+        return None
 
     try:
         area = [area for area in context.screen.areas if area.type == 'VIEW_3D'][0]
@@ -2045,6 +2081,7 @@ def delayed_setup(dummy=None) -> None:
     except:
         pass
     
+    _setup_failed      = False
     _devkit_registered = True
     return None
 
@@ -2111,7 +2148,7 @@ def set_devkit_properties() -> None:
         type=DevkitController
         )
     
-    bpy.types.Scene.ya_devkit_ver = (0, 19, 1)
+    bpy.types.Scene.ya_devkit_ver = (0, 19, 2)
 
     DevkitWindowProps.ui_buttons()
     DevkitWindowProps.export_bools()
