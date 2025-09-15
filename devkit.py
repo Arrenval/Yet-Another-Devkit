@@ -1637,7 +1637,7 @@ class Overview(Panel):
             row.label(text="Yet Another Skeleton")
 
             if button:
-                if hasattr(context.scene, "ya_outfit_props"):
+                if hasattr(context.scene, "ya_studio_props"):
                     self.yas_menu(layout)
                 else:
                     row = layout.row(align=True)
@@ -1871,7 +1871,7 @@ class Overview(Panel):
         row = layout.row(align=True)
         split = row.split(factor=0.25, align=True)
         split.alignment = "RIGHT"
-        split.label(text=f"Rue:")
+        split.label(text=f"Feet:")
         subrow = split.row(align=True)
         if not self.props.shape_mq_other_bool:
             icon = "HIDE_OFF" if self.collection.feet else "HIDE_ON"
